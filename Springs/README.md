@@ -113,3 +113,12 @@ If I were starting now, I might use this. I can see it attached to the base, PCB
 OK, I had to try it. I created a wave spring and a method to mount it to the mouse.
 Full details in the 'experimental wave spring' directory.
 https://github.com/ChromeBee/Hall-Effect-Sensor-CAD-Mouse-Spacemouse/tree/main/Springs/Wave_Spring_Experiment
+
+<b>18-Feb-2026 Update</b>
+InnerBushman on Printables has created a very interesting magnet plate TPU spring alternative that I want to bring to peoples attention.
+
+![CAD mouse small](https://github.com/user-attachments/assets/5fac423c-855b-4cb4-90f9-44693e440174)
+
+You can find it at https://www.printables.com/model/1566497-alternative-tpu-suspension-for-spacemouse
+
+I now have the 0.5mm version printed in eSun 95A TPU installed in my blue mouse and can confirm it work very very well.
