@@ -122,3 +122,17 @@ InnerBushman on Printables has created a very interesting magnet plate TPU sprin
 You can find it at https://www.printables.com/model/1566497-alternative-tpu-suspension-for-spacemouse
 
 I now have the 0.5mm version printed in eSun 95A TPU installed in my blue mouse and can confirm it work very very well.
+
+<b>08-Mar-2026 Update</b>
+InnerBushman, when he posted the alternative TPU spring for the Spacemouse, also included a case which was much smaller than the smaller case version I already posted here. That original smaller case version was for the TPU spring version I posted on Printables. InnerBushmans alternative spring doesn't require mounting points above and below the magnet plate so the mouse can be made much smaller.
+
+When I designed the original case, I used variables (parameters in Fusion) to represent the various sizes, so using InnerBushmans case height as a guide, I changed some of the variables to have a case of the same height as his based on the original design. I have now posted that on Printables. Changes need to be made to bolt sizes to get the mechanisim to fit but the changes are simple.
+See: https://www.printables.com/model/1626668-alternate-case-for-alternative-tpu-spring-for-spac
+
+His design opens up other possibilities. I played around with using his spring higher up the knob where the fingers hold it. This should give the best control but while it worked well for most movements, it didn't work with tilt because of the changed pivot point. There was always a degree of lateral movement introduce with the tilt.
+
+![knob original magnet plate with Alt TPU spring](https://github.com/user-attachments/assets/0db85a0c-97ab-408b-8a0d-c59b77362762)
+
+This however got me wondering... Can we put the magnet plate there and have the sensors mounted so they appear inside the knob itself? Then the only thing outside the knob would be the buttons and the pro micro ( and the mount for the sensors and the rest of the hardware).
+
+I am aware that there are other mouse versions using similar springs such as this from LeoSpaceLab. https://youtu.be/LWE_vR1oFRo?si=dDvz3KJTkTcSgacW ( not a 6DOF mouse though the spring is) and Razberry on YouTube has a series where he tries to build the perfect mouse. This version by InnerBushman is for my mouse and and I know it works.
