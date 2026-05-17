@@ -157,6 +157,19 @@ int BTNLIST[3] = { // Button pin list
 // Note that the 3d Connections also has its own deadzone processes
 int DEADZONE = 40;
 
+// Set any Hall sensor to false to report it as zero and remove its contribution
+// from centered values and movement calculations.
+bool hallSensorEnabled[8] = {
+    true,  // HES0
+    true,  // HES1
+    true,  // HES2
+    true,  // HES3
+    false, // HES6
+    false, // HES7
+    false, // HES8
+    false  // HES9
+};
+
 // This portion sets up the communication with the 3DConnexion software. The communication protocol is created here.
 // hidReportDescriptor webpage can be found here: https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/
 static const uint8_t _hidReportDescriptor[] PROGMEM = {
@@ -317,19 +330,6 @@ void configureAnalogReference()
 #define BTN0 0
 #define BTN1 1
 #define BTN2 2
-
-// Set any Hall sensor to false to report it as zero and remove its contribution
-// from centered values and movement calculations.
-bool hallSensorEnabled[8] = {
-    true,  // HES0
-    true,  // HES1
-    true,  // HES2
-    true,  // HES3
-    false, // HES6
-    false, // HES7
-    false, // HES8
-    false  // HES9
-};
 
 // Centerpoint variable to be populated during setup routine.
 int centerPoints[8];
