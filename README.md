@@ -1,6 +1,10 @@
 Hall-Effect-Sensor-CAD-Mouse-Spacemouse
 A 6 degrees of freedom mouse for CAD programs using cheap linear Hall Effect sensors for position measurement
 
+Firmware note: `pio-migration/` is the maintained PlatformIO firmware. The
+original Arduino sketch under `HE_Spacemouse/` is retained as legacy reference
+and is not kept in sync with the PlatformIO code.
+
 ![2HE Spacemouse ](https://github.com/ChromeBee/Hall-Effect-Sensor-CAD-Mouse-Spacemouse/assets/141455861/2feb6cea-6c4b-4f79-b23b-a1e912a4b1b3)
 
 This started as a thought project based on the Teaching Tech $20 CAD mouse code. This code works with the 3D ConneXions device driver so any program that works with the 3D connexions Spacemouse will work with his $20 CAD mouse and also this one. If it hadn't been for his project and the resulting code, I wouldn't have even considered this.
