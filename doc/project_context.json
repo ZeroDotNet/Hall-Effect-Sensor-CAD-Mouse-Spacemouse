@@ -1,0 +1,71 @@
+{
+  "project": "Spacemouse",
+  "owner": "Nico",
+  "export_date": "2026-05-18",
+  "base_project": "ChromeBee/Hall-Effect-Sensor-CAD-Mouse-Spacemouse",
+  "alternate_references": [
+    "AndunHH/spacemouse",
+    "Teaching Tech Open Source Spacemouse / Space Mushroom Remix"
+  ],
+  "goal": "DIY SpaceMouse / CAD Mouse 6DoF usando sensores Hall lineales",
+  "mcu": {
+    "name": "Arduino Pro Micro",
+    "chip": "ATmega32U4",
+    "reason": "USB nativo e HID"
+  },
+  "sensors": {
+    "type": "49E/SS49E/OH49E linear hall effect",
+    "quantity_used": 8,
+    "quantity_in_stock": 10,
+    "mounting": "4 perfboards, 2 sensors per side",
+    "pinout_confirmed": {
+      "view": "flat/angular face toward user, legs downward",
+      "pin_1": "VCC",
+      "pin_2": "GND",
+      "pin_3": "DATA/OUT"
+    },
+    "expected_idle_output": "VCC/2"
+  },
+  "capacitors": {
+    "installed": "100nF ceramic between VCC and GND per sensor/perfboard area",
+    "recommended_optional": "100nF between OUT and GND if analog readings are noisy"
+  },
+  "magnets": {
+    "reference_original": "10x5x3mm neodymium, qty 4",
+    "available": [
+      "6x2mm",
+      "11x8x1.7mm"
+    ],
+    "recommendation": "Test 11x8x1.7mm temporarily before redesigning; adjust distance to avoid saturation"
+  },
+  "wiring": {
+    "power": "All sensor VCC to Pro Micro VCC; all sensor GND to common GND",
+    "outputs": "Each sensor OUT to a separate analog input",
+    "logical_sensor_map": {
+      "0": "front pair / A0",
+      "1": "front pair / A1",
+      "2": "right side / A2",
+      "3": "right side / A3",
+      "6": "rear / A6",
+      "7": "rear / A7",
+      "8": "left side / A8",
+      "9": "left side / A9"
+    }
+  },
+  "current_state": "Sensors mounted and VCC-GND 100nF capacitors added; final wiring under review",
+  "risks": [
+    "Wrong sensor pinout",
+    "Magnet saturation due non-original size",
+    "Analog noise from long wires",
+    "Sensor order mismatch with firmware",
+    "Missing common ground"
+  ],
+  "next_steps": [
+    "Verify VCC/GND continuity",
+    "Measure each OUT at rest",
+    "Run debug firmware sensor by sensor",
+    "Temporarily mount magnets",
+    "Tune sensor-magnet distance",
+    "Calibrate axes and buttons"
+  ]
+}

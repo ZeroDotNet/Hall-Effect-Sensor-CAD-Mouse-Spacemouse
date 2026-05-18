@@ -1,0 +1,20 @@
+Item,Tipo,Fabricante,Cantidad,Estado,Notas
+Arduino Pro Micro ATmega32U4,MCU,Genérico,1,Confirmado,"USB nativo, base recomendada para HID"
+Sensor Hall lineal 49E/SS49E/OH49E,Sensor Hall,Genérico,8 en uso / 10 en stock,Confirmado,"Pinout Nico: 1=VCC, 2=GND, 3=OUT"
+Capacitor cerámico 100nF,Capacitor,Genérico,>=8,Instalado parcialmente/confirmado,Entre VCC y GND por sensor; opcional OUT-GND
+Capacitor cerámico 10nF,Capacitor,Genérico,10,Disponible,Filtro alternativo si se requiere menos smoothing
+Resistencia 220Ω 1/4W,Resistencia,Genérico,10,Disponible,No crítica para sensores
+Resistencia 1KΩ 1/4W,Resistencia,Genérico,10,Disponible,Uso auxiliar
+Resistencia 10KΩ 1/4W,Resistencia,Genérico,10,Disponible,Pullups/pulldowns si no se usa INPUT_PULLUP
+ADS1015 I2C 12-bit 4 canales,ADC,Genérico,1,Disponible,No recomendado para primera versión por solo 4 canales
+Imán neodimio 6×2 mm,Imán,Genérico,Disponible,Disponible,"Útil para pruebas, puede dar señal baja"
+Imán neodimio 11×8×1.7 mm,Imán,Genérico,Disponible,Disponible,Probar temporalmente; puede requerir ajustar distancia
+Imán neodimio 10×5×3 mm,Imán,Genérico,4,Referencia original,Medida usada en proyecto base ChromeBee
+Pulsador táctil 6×6×5 mm,Pulsador,Genérico,3,Referencia original,Para vistas/acciones CAD
+Tornillo M4×40 mm rosca completa,Mecánico,Genérico,1,Referencia original,Eje/tornillo central
+Tuerca M4,Mecánico,Genérico,2-3,Referencia original,Ajuste de altura/tensión
+Tornillos M3×20 mm,Mecánico,Genérico,4,Referencia original,Separación placas
+Tuercas M3,Mecánico,Genérico,12,Referencia original,Montaje
+Insertos térmicos M3×4 mm,Mecánico,Genérico,10,Referencia original,Carcasa/placas
+Resortes tensión 0.2×12×4 mm,Mecánico,Genérico,8,Referencia original,Puede reemplazarse por TPU spring/wave spring
+Alambre piano 1 mm,Mecánico,Genérico,8×8mm + 4×15mm,Referencia original,Retención de resortes

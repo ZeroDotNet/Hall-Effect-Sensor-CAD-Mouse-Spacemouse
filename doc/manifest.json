@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-05-18",
+  "package": "spacemouse-handoff",
+  "doc_files": [
+    "CALIBRATION_TEST_PLAN.md",
+    "CHANGELOG.md",
+    "FIRMWARE_NOTES.md",
+    "FIRMWARE_REFERENCE.md",
+    "GITHUB_PUBLISH_NOTES.md",
+    "HARDWARE_BOM.csv",
+    "MECHANICAL_NOTES.md",
+    "NEXT_STEPS.md",
+    "OPEN_DECISIONS.md",
+    "PROJECT_CONTEXT.md",
+    "README_HANDOFF.md",
+    "SENSOR_PINOUT.md",
+    "WIRING_MAP.md",
+    "agent_prompt.md",
+    "project_context.json",
+    "project_context.yaml"
+  ],
+  "notes": "Copy doc/ to the target GitHub repository once owner/repo is confirmed."
+}
