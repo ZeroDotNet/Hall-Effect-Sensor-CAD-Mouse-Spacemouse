@@ -36,6 +36,49 @@
  ************************************************/
 
 #include <Arduino.h>
+#include <math.h>
+#include "movement_math.h"
+
+#if !defined(SENSOR_BACKEND_HALL) && !defined(SENSOR_BACKEND_TLV493D)
+#define SENSOR_BACKEND_HALL 1
+#endif
+
+#if defined(SENSOR_BACKEND_HALL) && defined(SENSOR_BACKEND_TLV493D)
+#undef SENSOR_BACKEND_HALL
+#endif
+
+#if defined(SENSOR_BACKEND_TLV493D)
+#if !defined(TARGET_RP2040)
+#error "The TLV493D backend is currently wired for RP2040 builds."
+#endif
+#include <Wire.h>
+#include "TLx493D_inc.hpp"
+using namespace ifx::tlx493d;
+#ifndef TLV493D_SENSOR_COUNT
+#define TLV493D_SENSOR_COUNT 3
+#endif
+#if TLV493D_SENSOR_COUNT != 1 && TLV493D_SENSOR_COUNT != 3
+#error "TLV493D_SENSOR_COUNT must be 1 or 3."
+#endif
+#ifndef I2C0_SDA
+#define I2C0_SDA 4
+#endif
+#ifndef I2C0_SCL
+#define I2C0_SCL 5
+#endif
+#ifndef I2C1_SDA
+#define I2C1_SDA 2
+#endif
+#ifndef I2C1_SCL
+#define I2C1_SCL 3
+#endif
+#ifndef TLV493D_SCALE
+#define TLV493D_SCALE 10.0f
+#endif
+#ifndef TLV493D_DEADZONE
+#define TLV493D_DEADZONE 0.4f
+#endif
+#endif
 
 #if defined(ARDUINO_ARCH_AVR)
 // Include inbuilt Arduino HID library by NicoHood: https://github.com/NicoHood/HID
@@ -331,10 +374,21 @@ bool hallSensorEnabled[8] = {
     false  // HES9
 };
 
+#if defined(SENSOR_BACKEND_TLV493D)
+TLx493D_A1B6 tlvSensor1(Wire, TLx493D_IIC_ADDR_A0_e);
+#if TLV493D_SENSOR_COUNT == 3
+static arduino::MbedI2C TlvWire1(I2C1_SDA, I2C1_SCL);
+TLx493D_A1B6 tlvSensor2(Wire, TLx493D_IIC_ADDR_A1_e);
+TLx493D_A1B6 tlvSensor3(TlvWire1, TLx493D_IIC_ADDR_A0_e);
+#endif
+float tlvCenterPoints[TLV493D_SENSOR_COUNT * 3];
+#else
 // Centerpoint variable to be populated during setup routine.
 int centerPoints[8];
+#endif
 
 // Function to read and store analogue voltages for each joystick axis.
+#if defined(SENSOR_BACKEND_HALL)
 void readAllFromSensors(int *rawReads)
 {
   for (int i = 0; i < 8; i++)
@@ -349,6 +403,42 @@ void readAllFromSensors(int *rawReads)
     }
   }
 }
+#else
+void setupTlv493dSensors()
+{
+  Wire.begin();
+#if TLV493D_SENSOR_COUNT == 3
+  TlvWire1.begin();
+#endif
+
+  tlvSensor1.begin();
+#if TLV493D_SENSOR_COUNT == 3
+  tlvSensor2.begin();
+  tlvSensor3.begin();
+#endif
+}
+
+bool readTlvSensor(TLx493D_A1B6 &sensor, float *readings)
+{
+  double x = 0.0;
+  double y = 0.0;
+  double z = 0.0;
+  const bool ok = sensor.getMagneticField(&x, &y, &z);
+  readings[0] = static_cast<float>(x);
+  readings[1] = static_cast<float>(y);
+  readings[2] = static_cast<float>(z);
+  return ok;
+}
+
+void readAllFromSensors(float *rawReads)
+{
+  readTlvSensor(tlvSensor1, &rawReads[0]);
+#if TLV493D_SENSOR_COUNT == 3
+  readTlvSensor(tlvSensor2, &rawReads[3]);
+  readTlvSensor(tlvSensor3, &rawReads[6]);
+#endif
+}
+#endif
 
 // *JC Function to read and store button values
 // When pressing two buttons at once for a different function, one button is usually pressed slightly before the other.
@@ -526,12 +616,20 @@ void setup()
   }
   configureAnalogReference();
 
+#if defined(SENSOR_BACKEND_TLV493D)
+  setupTlv493dSensors();
+  readAllFromSensors(tlvCenterPoints);
+  delay(1000);
+  readAllFromSensors(tlvCenterPoints);
+  readAllFromSensors(tlvCenterPoints);
+#else
   // Read idle/centre positions for Sensors.
   // *JC - First read gives unpredictable values so do it twice
   readAllFromSensors(centerPoints);
   delay(1000);
   readAllFromSensors(centerPoints);
   readAllFromSensors(centerPoints);
+#endif
 }
 
 uint8_t keyChange = 0; // C004 - *JC - variable to determine if new key report needs to be sent.
@@ -600,7 +698,11 @@ void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int1
 
 void loop()
 {
+#if defined(SENSOR_BACKEND_TLV493D)
+  float rawReads[TLV493D_SENSOR_COUNT * 3], centeredTlv[TLV493D_SENSOR_COUNT * 3];
+#else
   int rawReads[8], centered[8];
+#endif
   uint8_t buttonReads[9]; // C007 - *JC added two more values for two extra pseudo buttons C009 added another 3 pseudo switches to cycle views when button 2 (front) pressed
 
   // sensor values are read. range should be 176 - 1024 for debug levels other than 1 and 88-860 for debug 1
@@ -611,6 +713,39 @@ void loop()
   // Report back 0-1023 raw ADC 10-bit values if enabled
   if (debug == 1)
   {
+#if defined(SENSOR_BACKEND_TLV493D)
+    if (debug1SameLine)
+    {
+      Serial.print('\r');
+    }
+    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
+    {
+      if (i > 0)
+      {
+        Serial.print(",");
+      }
+      Serial.print("TLV");
+      Serial.print(i + 1);
+      Serial.print("X:");
+      Serial.print(rawReads[i * 3 + 0], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Y:");
+      Serial.print(rawReads[i * 3 + 1], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Z:");
+      Serial.print(rawReads[i * 3 + 2], 3);
+    }
+    if (debug1SameLine)
+    {
+      Serial.print("    ");
+    }
+    else
+    {
+      Serial.println();
+    }
+#else
     if (debug1SameLine)
     {
       Serial.print('\r');
@@ -648,8 +783,24 @@ void loop()
     {
       Serial.println();
     }
+#endif
   }
 
+#if defined(SENSOR_BACKEND_TLV493D)
+  for (int i = 0; i < TLV493D_SENSOR_COUNT * 3; i++)
+  {
+    centeredTlv[i] = rawReads[i] - tlvCenterPoints[i];
+    if (centeredTlv[i] < TLV493D_DEADZONE && centeredTlv[i] > -TLV493D_DEADZONE)
+    {
+      centeredTlv[i] = 0.0f;
+    }
+    else
+    {
+      const float sgn = centeredTlv[i] < 0.0f ? -1.0f : 1.0f;
+      centeredTlv[i] = sgn * (fabsf(centeredTlv[i]) - TLV493D_DEADZONE);
+    }
+  }
+#else
   // Subtract centre position from measured position to determine movement.
   // *JC - As we are going negative with the readings, we make them positive
   // by subtraction them from the recorded centerPoints rather than the other was around.
@@ -658,9 +809,32 @@ void loop()
   {
     centered[i] = centerPoints[i] - rawReads[i]; //
   }
+#endif
   // Report centered Sensor values if enabled. Values should be approx -256 to +256, jitter around 0 at idle.
   if (debug == 2)
   {
+#if defined(SENSOR_BACKEND_TLV493D)
+    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
+    {
+      if (i > 0)
+      {
+        Serial.print(",");
+      }
+      Serial.print("TLV");
+      Serial.print(i + 1);
+      Serial.print("X:");
+      Serial.print(centeredTlv[i * 3 + 0], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Y:");
+      Serial.print(centeredTlv[i * 3 + 1], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Z:");
+      Serial.print(centeredTlv[i * 3 + 2], 3);
+    }
+    Serial.println();
+#else
     Serial.print("HES0:");
     Serial.print(centered[0]);
     Serial.print(",");
@@ -684,7 +858,9 @@ void loop()
     Serial.print(",");
     Serial.print("HES9:");
     Serial.println(centered[7]);
+#endif
   }
+#if defined(SENSOR_BACKEND_HALL)
   // Filter movement values. Set to zero if movement is below deadzone threshold.
   // *JC - Changed operation so there isn't a sudden jump when the value first falls outside deadzone
   for (int i = 0; i < 8; i++)
@@ -699,9 +875,43 @@ void loop()
       centered[i] = sgn * (abs(centered[i]) - DEADZONE);
     }
   }
+#endif
   // Report centered Sensor values. Filtered for deadzone. Approx -500 to +500, locked to zero at idle
   if (debug == 3)
   {
+#if defined(SENSOR_BACKEND_TLV493D)
+    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
+    {
+      if (i > 0)
+      {
+        Serial.print(",");
+      }
+      Serial.print("TLV");
+      Serial.print(i + 1);
+      Serial.print("X:");
+      Serial.print(centeredTlv[i * 3 + 0], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Y:");
+      Serial.print(centeredTlv[i * 3 + 1], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Z:");
+      Serial.print(centeredTlv[i * 3 + 2], 3);
+    }
+    Serial.print(",");
+    Serial.print("But0:");
+    Serial.print(buttonReads[0]);
+    Serial.print(",");
+    Serial.print("But1:");
+    Serial.print(buttonReads[1]);
+    Serial.print(",");
+    Serial.print("But2:");
+    Serial.print(buttonReads[2]);
+    Serial.print(",");
+    Serial.print("But3:");
+    Serial.println(buttonReads[3]);
+#else
     Serial.print("HES0:");
     Serial.print(centered[0]);
     Serial.print(",");
@@ -737,11 +947,12 @@ void loop()
     Serial.print(",");
     Serial.print("But3:");
     Serial.println(buttonReads[3]);
+#endif
   }
 
   // Doing all through arithmetic contribution by fdmakara
   // Integer has been changed to 16 bit int16_t to match what the HID protocol expects.
-  int16_t transX, transY, transZ, rotX, rotY, rotZ; // Declare movement variables at 16 bit integers
+  Movement6D movement;
   // Original fdmakara calculations
   // transX = (-centered[AX] +centered[CX])/1;
   // transY = (-centered[BX] +centered[DX])/1;
@@ -750,13 +961,17 @@ void loop()
   // rotY = (+centered[BY] -centered[DY])/2;
   // rotZ = (+centered[AX] +centered[BX] +centered[CX] +centered[DX])/4;
 
-  // *JC - Replaced Joystick calculations with ones for the Hall Effect Sensors
-  transX = (centered[HES1] - centered[HES0] + centered[HES6] - centered[HES7]) / 2;
-  transY = (centered[HES2] - centered[HES3] + centered[HES9] - centered[HES8]) / 2;
-  transZ = (centered[HES0] + centered[HES1] + centered[HES2] + centered[HES3] + centered[HES6] + centered[HES7] + centered[HES8] + centered[HES9]) / 4;
-  rotX = (centered[HES0] + centered[HES1] - centered[HES6] - centered[HES7]) / 2;
-  rotY = (centered[HES8] + centered[HES9] - centered[HES2] - centered[HES3]) / 2;
-  rotZ = (centered[HES0] + centered[HES2] + centered[HES6] + centered[HES8] - centered[HES1] - centered[HES3] - centered[HES7] - centered[HES9]) / 4; // C0001 *JC - changed default direction of rotation
+  // *JC - Replaced Joystick calculations with ones for the Hall Effect Sensors.
+  // The TLV493D backend keeps this Hall path intact and selects the alternate math at build time.
+#if defined(SENSOR_BACKEND_TLV493D)
+#if TLV493D_SENSOR_COUNT == 1
+  calcTlv493dSingleSensorMovement(centeredTlv, TLV493D_SCALE, movement);
+#else
+  calcTlv493dMovement(centeredTlv, TLV493D_SCALE, movement);
+#endif
+#else
+  calcHallMovement(centered, movement);
+#endif
 
   // *JC - modified speed calculation to allow for the fact that this is integer calculations
   // so do multiplications prior to divisions to maintain maximum accuracy.
@@ -771,53 +986,75 @@ void loop()
   // Invert directions if needed
   if (invX == true)
   {
-    transX = transX * -1;
+    movement.tx = movement.tx * -1;
   };
   if (invY == true)
   {
-    transY = transY * -1;
+    movement.ty = movement.ty * -1;
   };
   if (invZ == true)
   {
-    transZ = transZ * -1;
+    movement.tz = movement.tz * -1;
   };
   if (invRX == true)
   {
-    rotX = rotX * -1;
+    movement.rx = movement.rx * -1;
   };
   if (invRY == true)
   {
-    rotY = rotY * -1;
+    movement.ry = movement.ry * -1;
   };
   if (invRZ == true)
   {
-    rotZ = rotZ * -1;
+    movement.rz = movement.rz * -1;
   };
 
   // Report translation and rotation values if enabled. Approx -800 to 800 depending on the parameter.
   if (debug == 4)
   {
     Serial.print("TX:");
-    Serial.print(transX);
+    Serial.print(movement.tx);
     Serial.print(",");
     Serial.print("TY:");
-    Serial.print(transY);
+    Serial.print(movement.ty);
     Serial.print(",");
     Serial.print("TZ:");
-    Serial.print(transZ);
+    Serial.print(movement.tz);
     Serial.print(",");
     Serial.print("RX:");
-    Serial.print(rotX);
+    Serial.print(movement.rx);
     Serial.print(",");
     Serial.print("RY:");
-    Serial.print(rotY);
+    Serial.print(movement.ry);
     Serial.print(",");
     Serial.print("RZ:");
-    Serial.println(rotZ);
+    Serial.println(movement.rz);
   }
   // Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
   if (debug == 5)
   {
+#if defined(SENSOR_BACKEND_TLV493D)
+    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
+    {
+      if (i > 0)
+      {
+        Serial.print(",");
+      }
+      Serial.print("TLV");
+      Serial.print(i + 1);
+      Serial.print("X:");
+      Serial.print(centeredTlv[i * 3 + 0], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Y:");
+      Serial.print(centeredTlv[i * 3 + 1], 3);
+      Serial.print(",TLV");
+      Serial.print(i + 1);
+      Serial.print("Z:");
+      Serial.print(centeredTlv[i * 3 + 2], 3);
+    }
+    Serial.print("||");
+#else
     Serial.print("HES0:");
     Serial.print(centered[0]);
     Serial.print(",");
@@ -842,23 +1079,24 @@ void loop()
     Serial.print("HES9:");
     Serial.print(centered[7]);
     Serial.print("||");
+#endif
     Serial.print("TX:");
-    Serial.print(transX);
+    Serial.print(movement.tx);
     Serial.print(",");
     Serial.print("TY:");
-    Serial.print(transY);
+    Serial.print(movement.ty);
     Serial.print(",");
     Serial.print("TZ:");
-    Serial.print(transZ);
+    Serial.print(movement.tz);
     Serial.print(",");
     Serial.print("RX:");
-    Serial.print(rotX);
+    Serial.print(movement.rx);
     Serial.print(",");
     Serial.print("RY:");
-    Serial.print(rotY);
+    Serial.print(movement.ry);
     Serial.print(",");
     Serial.print("RZ:");
-    Serial.println(rotZ);
+    Serial.println(movement.rz);
   }
 
   // Send data to the 3DConnexion software.
@@ -867,10 +1105,10 @@ void loop()
   // *JC C003 Allowing swap between TT movement and 3DC movement defaults.
   if (movement3DC)
   {
-    send_command(rotX, rotY, rotZ, transX, transY, transZ, buttonReads); // 3DC default
+    send_command(movement.rx, movement.ry, movement.rz, movement.tx, movement.ty, movement.tz, buttonReads); // 3DC default
   }
   else
   {
-    send_command(rotX, rotY, rotZ, transX, transZ, transY, buttonReads); // TT default
+    send_command(movement.rx, movement.ry, movement.rz, movement.tx, movement.tz, movement.ty, buttonReads); // TT default
   }
 }
