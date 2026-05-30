@@ -38,6 +38,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include "movement_math.h"
+#include "status_led.h"
 
 #if !defined(SENSOR_BACKEND_HALL) && !defined(SENSOR_BACKEND_TLV493D)
 #define SENSOR_BACKEND_HALL 1
@@ -103,7 +104,7 @@ using namespace ifx::tlx493d;
 // 4: Output translation and rotation values. Approx -500 to +500 depending on the parameter. *JC ADC reference 2.56v
 // 5: Output debug 3 and 4 side by side for direct cause and effect reference. *JC ADC reference 2.56v
 // 6: *JC Output debug info for pseudo key state machine. ( two keys pressed at once to simulate another key press)
-int debug = 1;
+int debug = 0;
 bool debug1SameLine = true; // true: refresh one terminal line. false: print one sample per line.
 
 // Choose between 3DConnexion default movement or Teaching Tech's
@@ -250,7 +251,10 @@ static const uint8_t _hidReportDescriptor[] PROGMEM = {
 class SpaceMouseHID : public arduino::USBHID
 {
 public:
-  SpaceMouseHID() : arduino::USBHID(false, 0, 0, 0x256f, 0xc631, 0x0001) {}
+  // output_report_length = max bytes the device SENDS (Mbed naming: output = device→host).
+  // Our largest report is 7 bytes (1 reportId + 6 data). input_report_length = host→device,
+  // which we don't use.
+  SpaceMouseHID() : arduino::USBHID(false, 8, 0, 0x256f, 0xc631, 0x0001) {}
 
   bool sendReport(uint8_t reportId, const uint8_t *data, uint8_t len)
   {
@@ -317,6 +321,7 @@ void setupSpaceMouseHid()
   HID().AppendDescriptor(&node);
 #elif defined(TARGET_RP2040)
   PluggableUSBD().begin();
+  SpaceMouseUsbHid.wait_ready(); // block until host enumerates the device
 #elif defined(ARDUINO_ARCH_ESP32)
   SpaceMouseUsbHid.begin();
   USB.begin();
@@ -604,9 +609,15 @@ void readAllFromButtons(uint8_t *buttonValues)
 
 void setup()
 {
-  // HID protocol is set.
+  ledBegin();
+
+  // HID protocol is set.  On RP2040 this blocks until the host enumerates the device.
   setupSpaceMouseHid();
-  // Begin Seral for debugging
+
+  // USB is now live — solid blue to indicate power-on ready.
+  ledSolid(0, 0, 40);
+
+  // Begin Serial for debugging
   Serial.begin(250000);
   delay(100);
   // *JC - setup button pins for digitalRead
@@ -619,17 +630,22 @@ void setup()
 #if defined(SENSOR_BACKEND_TLV493D)
   setupTlv493dSensors();
   readAllFromSensors(tlvCenterPoints);
-  delay(1000);
+  // Pulse blue during the calibration settle window instead of a plain delay.
+  ledPulseBlue(1000);
   readAllFromSensors(tlvCenterPoints);
   readAllFromSensors(tlvCenterPoints);
 #else
   // Read idle/centre positions for Sensors.
   // *JC - First read gives unpredictable values so do it twice
   readAllFromSensors(centerPoints);
-  delay(1000);
+  // Pulse blue during the calibration settle window instead of a plain delay.
+  ledPulseBlue(1000);
   readAllFromSensors(centerPoints);
   readAllFromSensors(centerPoints);
 #endif
+
+  // Calibration done — back to steady blue.
+  ledSolid(0, 0, 40);
 }
 
 uint8_t keyChange = 0; // C004 - *JC - variable to determine if new key report needs to be sent.

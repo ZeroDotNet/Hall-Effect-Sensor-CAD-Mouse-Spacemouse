@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Diagrama de Conexión – SpaceMouse RP2040</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; display: flex; justify-content: center; align-items: flex-start; padding: 10px; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1400" height="960"></canvas>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+
+// ── palette ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:       '#0d1117',
+  board:    '#161b2e',
+  boardBdr: '#4a9eff',
+  chip:     '#0a1220',
+  comp:     '#111c30',
+  compBdr:  '#5dade2',
+  power:    '#e74c3c',
+  gnd:      '#636e72',
+  i2c0:     '#2ecc71',
+  i2c1:     '#1abc9c',
+  gpio:     '#f39c12',
+  led:      '#f1c40f',
+  warn:     '#ff6b6b',
+  txt:      '#ecf0f1',
+  dim:      '#7f8c8d',
+  bus:      '#2980b9',
+};
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function rect(x,y,w,h,fill,stroke,r=6,lw=1.5,shadow=null){
+  if(shadow){ g.shadowColor=shadow; g.shadowBlur=14; }
+  g.beginPath(); g.roundRect(x,y,w,h,r);
+  if(fill){ g.fillStyle=fill; g.fill(); }
+  if(stroke){ g.strokeStyle=stroke; g.lineWidth=lw; g.stroke(); }
+  g.shadowBlur=0;
+}
+function txt(s,x,y,color='#ecf0f1',size=12,align='left',bold=false,font='monospace'){
+  g.fillStyle=color; g.font=(bold?'bold ':'')+size+'px '+font;
+  g.textAlign=align; g.fillText(s,x,y);
+}
+function dot(x,y,color,r=4){ g.fillStyle=color; g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill(); }
+function line(x1,y1,x2,y2,color,lw=2,dash=[]){
+  g.strokeStyle=color; g.lineWidth=lw; g.setLineDash(dash);
+  g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke(); g.setLineDash([]);
+}
+function poly(pts,color,lw=2){
+  g.strokeStyle=color; g.lineWidth=lw;
+  g.beginPath(); g.moveTo(pts[0][0],pts[0][1]);
+  pts.slice(1).forEach(([x,y])=>g.lineTo(x,y)); g.stroke();
+}
+
+// ── background ───────────────────────────────────────────────────────────────
+g.fillStyle=C.bg; g.fillRect(0,0,1400,960);
+
+// grid dots (subtle)
+g.fillStyle='#1a1f2e';
+for(let x=20;x<1400;x+=40) for(let y=20;y<960;y+=40){
+  g.beginPath(); g.arc(x,y,1,0,Math.PI*2); g.fill();
+}
+
+// ── title ────────────────────────────────────────────────────────────────────
+txt('Diagrama de Conexión — SpaceMouse Hall Effect (YD-RP2040)',700,36,C.boardBdr,17,'center',true);
+txt('Entorno: rp2040-tlv493d-3  |  3 sensores TLV493D-A1B6  |  3 botones  |  LED RGB WS2812B',700,56,C.dim,11,'center');
+
+// ── YD-RP2040 board ──────────────────────────────────────────────────────────
+const BX=556, BY=78, BW=268, BH=770;
+rect(BX,BY,BW,BH,C.board,C.boardBdr,10,2,C.boardBdr);
+
+// board label
+txt('YD-RP2040',BX+BW/2,BY+22,C.boardBdr,14,'center',true);
+txt('VCC-GND.COM',BX+BW/2,BY+38,C.dim,10,'center');
+
+// RP2040 chip block
+const chX=BX+BW/2-55, chY=BY+300;
+rect(chX,chY,110,90,C.chip,C.boardBdr,4,1.5);
+txt('RP2040',chX+55,chY+38,C.boardBdr,13,'center',true);
+txt('Cortex-M0+',chX+55,chY+55,C.dim,9,'center');
+txt('125 MHz',chX+55,chY+70,C.dim,9,'center');
+
+// USB-C symbol at bottom
+rect(BX+BW/2-25,BY+BH-52,50,30,C.chip,C.boardBdr,4,1.5);
+txt('USB-C',BX+BW/2,BY+BH-33,C.boardBdr,9,'center');
+
+// ── pin position table ───────────────────────────────────────────────────────
+// Left-side pins (x = BX)
+const LP = {
+  v33:  BY+125,
+  gnd:  BY+170,
+  gnd2: BY+215,   // second GND
+  gp2:  BY+295,   // I2C1 SDA
+  gp3:  BY+345,   // I2C1 SCL
+  gp4:  BY+430,   // I2C0 SDA
+  gp5:  BY+480,   // I2C0 SCL
+};
+// Right-side pins (x = BX+BW)
+const RP_ = {
+  gp0:  BY+210,   // BTN0
+  gp1:  BY+305,   // BTN1
+  gp6:  BY+400,   // BTN2
+  gp23: BY+555,   // NeoPixel
+};
+
+function pinLeft(y, label, color, desc, warn=false){
+  dot(BX,y,color);
+  line(BX,y,BX-18,y,color,2);
+  txt(label,BX-22,y+4,C.txt,11,'right');
+  txt(desc,BX+8,y+4,warn?C.warn:C.dim,10,'left',warn);
+}
+function pinRight(y, label, color, desc){
+  dot(BX+BW,y,color);
+  line(BX+BW,y,BX+BW+18,y,color,2);
+  txt(label,BX+BW+22,y+4,C.txt,11,'left');
+  txt(desc,BX+BW-8,y+4,C.dim,10,'right');
+}
+
+pinLeft(LP.v33,  '3V3',  C.power, 'Power 3.3 V');
+pinLeft(LP.gnd,  'GND',  C.gnd,   'Ground');
+pinLeft(LP.gnd2, 'GND',  C.gnd,   'Ground');
+pinLeft(LP.gp2,  'GP2',  C.i2c1,  'I2C1 SDA');
+pinLeft(LP.gp3,  'GP3',  C.i2c1,  'I2C1 SCL');
+pinLeft(LP.gp4,  'GP4',  C.i2c0,  'I2C0 SDA');
+pinLeft(LP.gp5,  'GP5',  C.i2c0,  'I2C0 SCL');
+
+pinRight(RP_.gp0,  'GP0',  C.gpio, 'BTN0');
+pinRight(RP_.gp1,  'GP1',  C.gpio, 'BTN1');
+pinRight(RP_.gp6,  'GP6',  C.gpio, 'BTN2');
+pinRight(RP_.gp23, 'GP23', C.led,  'NeoPixel');
+
+// ── power / GND rails (left) ─────────────────────────────────────────────────
+// Vertical 3.3V rail
+const railX = 90;
+line(railX, 138, railX, 660, C.power, 1.5, [6,4]);
+txt('+3.3V',railX,128,C.power,10,'center',true);
+dot(railX,138,C.power,3); dot(railX,660,C.power,3);
+
+// Vertical GND rail
+const gndRailX = 118;
+line(gndRailX, 160, gndRailX, 690, C.gnd, 1.5, [6,4]);
+txt('GND',gndRailX,760,C.gnd,10,'center',true);
+dot(gndRailX,160,C.gnd,3); dot(gndRailX,690,C.gnd,3);
+
+// ── TLV493D component helper ──────────────────────────────────────────────────
+function drawTLV(x, y, id, busLabel, busColor, addrLabel){
+  const w=195, h=115;
+  rect(x,y,w,h,C.comp,busColor,6,1.5,busColor);
+  txt('TLV493D-A1B6  #'+id, x+w/2, y+18, busColor, 12, 'center', true);
+  txt(busLabel, x+w/2, y+32, C.dim, 9, 'center');
+  txt('Addr: '+addrLabel, x+w/2, y+44, C.dim, 9, 'center');
+
+  const pins=[
+    {name:'VDD', col:C.power},
+    {name:'GND', col:C.gnd},
+    {name:'SDA', col:busColor},
+    {name:'SCL', col:busColor},
+  ];
+  pins.forEach(({name,col},i)=>{
+    const py=y+60+i*13;
+    dot(x+w, py, col, 3.5);
+    txt(name, x+w-6, py+4, col, 9, 'right');
+  });
+  return {x,y,w,h,
+    vdd: {x:x+w, y:y+60},
+    gnd: {x:x+w, y:y+73},
+    sda: {x:x+w, y:y+86},
+    scl: {x:x+w, y:y+99},
+  };
+}
+
+const s1 = drawTLV(300, 130,  1, 'Wire (I2C0)', C.i2c0, '0x5E (ADDR=GND)');
+const s2 = drawTLV(300, 310,  2, 'Wire (I2C0)', C.i2c0, '0x1F (ADDR=VDD)');
+const s3 = drawTLV(300, 490,  3, 'TlvWire1 (I2C1)', C.i2c1, '0x5E (ADDR=GND)');
+
+// ── I2C0 bus routing ─────────────────────────────────────────────────────────
+const bus0X = 530;   // vertical bus stub for I2C0
+
+// SDA lines from sensors 1&2 to bus
+poly([[s1.sda.x, s1.sda.y],[bus0X, s1.sda.y],[bus0X, LP.gp4]], C.i2c0);
+poly([[s2.sda.x, s2.sda.y],[bus0X, s2.sda.y]], C.i2c0);
+line(bus0X, s1.sda.y, bus0X, s2.sda.y, C.i2c0); // vertical join
+dot(bus0X, s2.sda.y, C.i2c0, 3.5); // junction dot
+
+// SCL lines from sensors 1&2 to bus
+const bus0XscL = bus0X - 12;
+poly([[s1.scl.x, s1.scl.y],[bus0XscL, s1.scl.y],[bus0XscL, LP.gp5]], C.i2c0);
+poly([[s2.scl.x, s2.scl.y],[bus0XscL, s2.scl.y]], C.i2c0);
+line(bus0XscL, s1.scl.y, bus0XscL, s2.scl.y, C.i2c0);
+dot(bus0XscL, s2.scl.y, C.i2c0, 3.5);
+
+// connect bus to board pins GP4 / GP5
+line(bus0X,   LP.gp4, BX, LP.gp4, C.i2c0, 2);
+line(bus0XscL, LP.gp5, BX, LP.gp5, C.i2c0, 2);
+
+// I2C0 bus label
+txt('I2C0 Bus', bus0X-6, BY+445, C.i2c0, 9, 'right');
+
+// ── I2C1 bus routing ─────────────────────────────────────────────────────────
+const bus1X = bus0XscL - 14;
+
+poly([[s3.sda.x, s3.sda.y],[bus1X, s3.sda.y],[bus1X, LP.gp2]], C.i2c1);
+poly([[s3.scl.x, s3.scl.y],[bus1X-12, s3.scl.y],[bus1X-12, LP.gp3],[BX, LP.gp3]], C.i2c1);
+line(bus1X, LP.gp2, BX, LP.gp2, C.i2c1, 2);
+
+// I2C1 bus label
+txt('I2C1', bus1X-6, LP.gp2-12, C.i2c1, 9, 'right');
+
+// ── VDD / GND wires from rail to sensors ─────────────────────────────────────
+// Sensor 1
+poly([[s1.vdd.x, s1.vdd.y],[railX+12, s1.vdd.y],[railX+12, 138]], C.power, 1.5);
+poly([[s1.gnd.x, s1.gnd.y],[gndRailX+12, s1.gnd.y],[gndRailX+12, 160]], C.gnd, 1.5);
+// Sensor 2
+poly([[s2.vdd.x, s2.vdd.y],[railX+8, s2.vdd.y]], C.power, 1.5);
+dot(railX+12, s2.vdd.y, C.power, 2.5);
+poly([[s2.gnd.x, s2.gnd.y],[gndRailX+8, s2.gnd.y]], C.gnd, 1.5);
+dot(gndRailX+12, s2.gnd.y, C.gnd, 2.5);
+// Sensor 3
+poly([[s3.vdd.x, s3.vdd.y],[railX+4, s3.vdd.y]], C.power, 1.5);
+dot(railX+12, s3.vdd.y, C.power, 2.5);
+poly([[s3.gnd.x, s3.gnd.y],[gndRailX+4, s3.gnd.y]], C.gnd, 1.5);
+dot(gndRailX+12, s3.gnd.y, C.gnd, 2.5);
+
+// rail to board
+poly([[railX, 660],[railX, LP.v33-10],[BX-18, LP.v33-10],[BX-18, LP.v33],[BX, LP.v33]], C.power, 1.5);
+poly([[gndRailX, 690],[gndRailX, LP.gnd2-10],[BX-24, LP.gnd2-10],[BX-24, LP.gnd2],[BX, LP.gnd2]], C.gnd, 1.5);
+poly([[gndRailX, 690],[gndRailX-6, LP.gnd-10],[BX-30, LP.gnd-10],[BX-30, LP.gnd],[BX, LP.gnd]], C.gnd, 1.5);
+
+// ── BUTTONS (right side) ─────────────────────────────────────────────────────
+function drawButton(x, y, id, pin){
+  const w=130, h=62;
+  const col = C.gpio;
+  rect(x,y,w,h,C.comp,col,6,1.5);
+  txt('BOTÓN ' + id, x+w/2, y+18, col, 12, 'center', true);
+  txt(pin, x+w/2, y+33, C.dim, 10, 'center');
+  dot(x, y+h/2, col, 3.5);
+  return {pinX:x, pinY:y+h/2};
+}
+
+const b0 = drawButton(900, RP_.gp0-24, 0, 'GP0  (INPUT_PULLUP)');
+const b1 = drawButton(900, RP_.gp1-24, 1, 'GP1  (INPUT_PULLUP)');
+const b2 = drawButton(900, RP_.gp6-24, 2, 'GP6  (INPUT_PULLUP)');
+
+// GND for buttons (shared rail right side)
+const gndR = 1085;
+line(gndR, 150, gndR, 560, C.gnd, 1.5, [5,4]);
+txt('GND',gndR,148,C.gnd,9,'center',true);
+[b0,b1,b2].forEach(b=>{
+  poly([[b.pinX+130, b.pinY],[gndR, b.pinY]], C.gnd, 1.5);
+  dot(gndR, b.pinY, C.gnd, 2.5);
+});
+
+// wire from board GP0 → BTN0
+poly([[BX+BW, RP_.gp0],[BX+BW+40, RP_.gp0],[BX+BW+40, b0.pinY],[b0.pinX, b0.pinY]], C.gpio, 2);
+// wire from board GP1 → BTN1
+poly([[BX+BW, RP_.gp1],[BX+BW+55, RP_.gp1],[BX+BW+55, b1.pinY],[b1.pinX, b1.pinY]], C.gpio, 2);
+// wire from board GP6 → BTN2
+poly([[BX+BW, RP_.gp6],[BX+BW+70, RP_.gp6],[BX+BW+70, b2.pinY],[900, b2.pinY]], C.gpio, 2);
+
+// ── WS2812B NeoPixel ─────────────────────────────────────────────────────────
+const npX=880, npY=BY+505, npW=195, npH=110;
+rect(npX,npY,npW,npH,C.comp,C.led,6,2,C.led);
+txt('WS2812B NeoPixel', npX+npW/2, npY+18, C.led, 13, 'center', true);
+txt('LED RGB integrado en la placa', npX+npW/2, npY+32, C.dim, 9, 'center');
+txt('GP23  — STATUS_LED_PIN', npX+npW/2, npY+46, C.led, 10, 'center');
+
+// pin labels
+const npPins=[['DIN','data input',C.led],['VDD','3.3V / 5V',C.power],['GND','ground',C.gnd]];
+npPins.forEach(([n,d,col],i)=>{
+  const py=npY+64+i*16;
+  dot(npX, py, col, 3.5);
+  txt(n+': '+d, npX+8, py+4, col, 9, 'left');
+});
+
+// wire from board GP23 → NeoPixel DIN
+const npDinY = npY+64;
+poly([[BX+BW, RP_.gp23],[BX+BW+70, RP_.gp23],[BX+BW+70, npDinY],[npX, npDinY]], C.led, 2);
+
+// power to NeoPixel
+poly([[railX-30, 660],[railX-30, npY+80],[npX, npY+80]], C.power, 1.5);
+poly([[gndRailX-30,690],[gndRailX-30,npY+96],[npX, npY+96]], C.gnd, 1.5);
+
+// ── LED state annotations ─────────────────────────────────────────────────────
+rect(npX+npW+14, npY, 195, 110, '#0d1a0d', C.i2c0, 6, 1.5);
+txt('Estados del LED:', npX+npW+111, npY+16, C.i2c0, 10, 'center', true);
+const states=[
+  ['⬛  Iniciando','(USB no conectado)'],
+  ['🔵  Azul fijo ','USB listo / operando'],
+  ['🔵  Azul pulso','Calibración (~1s)'],
+];
+states.forEach(([s,d],i)=>{
+  const sy=npY+32+i*24;
+  txt(s, npX+npW+20, sy, C.txt, 9, 'left');
+  txt(d, npX+npW+20, sy+12, C.dim, 8, 'left');
+});
+
+// ── sensor placement note ─────────────────────────────────────────────────────
+rect(300, 640, 435, 85, '#0d1117', C.dim, 6, 1, null);
+txt('Disposición física de sensores (SpaceMouse)', 518, 658, C.dim, 10, 'center', true);
+const positions=[
+  'Sensor 1 (I2C0, A0) → eje Y−  (6 en punto)',
+  'Sensor 2 (I2C0, A1) → eje X+  (3 en punto)',
+  'Sensor 3 (I2C1, A0) → eje Y+  (12 en punto)',
+];
+positions.forEach((p,i)=> txt(p, 308, 674+i*14, C.dim, 9, 'left'));
+
+// ── BTN2 fix note ────────────────────────────────────────────────────────────
+rect(1160, BY+290, 220, 75, '#08140d', C.gpio, 6, 1.5, C.gpio);
+txt('BTN2 → GP6',1270, BY+310, C.gpio, 11,'center',true);
+txt('GP2 solo I2C1_SDA', 1270, BY+330, C.txt,9,'center');
+txt('Botones: GP0, GP1, GP6', 1270, BY+348, C.txt,9,'center');
+
+// ── legend ───────────────────────────────────────────────────────────────────
+const legX=10, legY=770;
+rect(legX,legY, 490, 140, C.comp, C.dim, 6, 1);
+txt('Leyenda de conexiones', legX+245, legY+18, C.txt, 11, 'center', true);
+const leg=[
+  [C.power,  '─── 3.3V (alimentación)'],
+  [C.gnd,    '─── GND  (tierra)'],
+  [C.i2c0,   '─── I2C0 – GP4(SDA) / GP5(SCL)  →  Sensores 1 & 2'],
+  [C.i2c1,   '─── I2C1 – GP2(SDA) / GP3(SCL)  →  Sensor 3'],
+  [C.gpio,   '─── GPIO digital  (INPUT_PULLUP)  →  Botones 0, 1 & 2'],
+  [C.led,    '─── GP23 NeoPixel data  →  WS2812B LED RGB'],
+];
+leg.forEach(([col,label],i)=>{
+  const ly = legY+30+i*15;
+  line(legX+12, ly, legX+42, ly, col, 2);
+  dot(legX+42, ly, col, 3);
+  txt(label, legX+50, ly+4, col, 9, 'left');
+});
+
+// ── secondary info box ───────────────────────────────────────────────────────
+rect(520, 770, 360, 140, C.comp, C.dim, 6, 1);
+txt('Configuración del entorno', 700, 788, C.txt, 11, 'center', true);
+const info=[
+  'Env: rp2040-tlv493d-3',
+  'Platform: raspberrypi (Mbed Arduino)',
+  'Board: pico (YD-RP2040)',
+  'USB VID/PID: 0x256F / 0xC631',
+  '        (SpaceMouse Pro Wireless)',
+  'I2C0: Wire (GP4=SDA, GP5=SCL)',
+  'I2C1: TlvWire1 (GP2=SDA, GP3=SCL)',
+];
+info.forEach((s,i)=> txt(s, 528, 804+i*14, i===3||i===4?C.boardBdr:C.dim, 9, 'left'));
+
+// ── pin summary box ───────────────────────────────────────────────────────────
+rect(900, 770, 480, 140, C.comp, C.dim, 6, 1);
+txt('Mapa de pines utilizado', 1140, 788, C.txt, 11, 'center', true);
+const pins2=[
+  ['GP0','BTN0 (pulsador derecho)','INPUT_PULLUP',C.gpio],
+  ['GP1','BTN1 (pulsador izquierdo)','INPUT_PULLUP',C.gpio],
+  ['GP2','I2C1 SDA – TLV493D #3','I2C1',C.i2c1],
+  ['GP3','I2C1 SCL – TLV493D #3','I2C1',C.i2c1],
+  ['GP4','I2C0 SDA – TLV493D #1 & #2','I2C0',C.i2c0],
+  ['GP5','I2C0 SCL – TLV493D #1 & #2','I2C0',C.i2c0],
+  ['GP6','BTN2 (pulsador extra)','INPUT_PULLUP',C.gpio],
+  ['GP23','NeoPixel WS2812B LED','SALIDA',C.led],
+];
+pins2.forEach(([pin,desc,mode,col],i)=>{
+  const py=804+i*14;
+  txt(pin+':',  908, py, col, 9, 'left', true);
+  txt(desc,     950, py, C.txt, 9, 'left');
+  txt(mode, 1360, py, col, 8, 'right');
+});
+
+// ── version stamp ─────────────────────────────────────────────────────────────
+txt('HE-SpaceMouse / pio-migration v rp2040-tlv493d-3', 1390, 950, C.dim, 8, 'right');
+</script>
+</body>
+</html>
