@@ -12,7 +12,60 @@ CANVAS_W = 1800
 CANVAS_H = 2300
 SCALE = 2
 ORTHOGONAL_WIRES = True
-RP2040_PIN_LABELS = tuple([f"GP{pin}" for pin in range(30)] + ["3V3", "5V", "GND", "RUN"])
+LEFT_PIN_LAYOUT = (
+    ("VOUT", "VOUT"),
+    ("VIN", "VIN"),
+    ("GND", "GND"),
+    ("GP23", "GP23 LED"),
+    ("3V3", "3V3"),
+    ("GP29", "GP29"),
+    ("GP28", "GP28"),
+    ("GND_L1", "GND"),
+    ("GP27", "GP27"),
+    ("GP26", "GP26"),
+    ("RUN", "RUN"),
+    ("GP22", "GP22"),
+    ("GND_L2", "GND"),
+    ("GP21", "GP21"),
+    ("GP20", "GP20"),
+    ("GP19", "GP19"),
+    ("GP18", "GP18"),
+    ("GND_L3", "GND"),
+    ("GP17", "GP17"),
+    ("GP16", "GP16"),
+)
+RIGHT_PIN_LAYOUT = (
+    ("GP0", "GP0 BTN0"),
+    ("GP1", "GP1 BTN1"),
+    ("GND_R0", "GND"),
+    ("GP2", "GP2 SDA1"),
+    ("GP3", "GP3 SCL1"),
+    ("GP4", "GP4 SDA0"),
+    ("GP5", "GP5 SCL0"),
+    ("GND_R1", "GND"),
+    ("GP6", "GP6 BTN2"),
+    ("GP7", "GP7"),
+    ("GP8", "GP8"),
+    ("GP9", "GP9"),
+    ("GND_R2", "GND"),
+    ("GP10", "GP10"),
+    ("GP11", "GP11"),
+    ("GP12", "GP12"),
+    ("GP13", "GP13"),
+    ("GND_R3", "GND"),
+    ("GP14", "GP14"),
+    ("GP15", "GP15"),
+)
+BOTTOM_PIN_LAYOUT = (
+    ("SWD_GND", "GND"),
+    ("SWCLK", "SWCLK"),
+    ("SWDIO", "SWDIO"),
+    ("3V3_BOOT", "3V3"),
+)
+RP2040_PIN_LABELS = tuple(
+    [label.split()[0] for _, label in LEFT_PIN_LAYOUT + RIGHT_PIN_LAYOUT + BOTTOM_PIN_LAYOUT]
+    + ["GND", "VBUS", "VSYS"]
+)
 
 COLORS = {
     "paper": (244, 242, 236),
@@ -161,16 +214,6 @@ def draw_rp2040(draw: ImageDraw.ImageDraw, base: Image.Image) -> dict[str, tuple
     text(draw, (x + 200, y + 394), "MCU", 20, (170, 183, 187), False)
 
     pins: dict[str, tuple[float, float]] = {}
-    function_labels = {
-        "GP0": "BTN0",
-        "GP1": "BTN1",
-        "GP2": "SDA1",
-        "GP3": "SCL1",
-        "GP4": "SDA0",
-        "GP5": "SCL0",
-        "GP6": "BTN2",
-        "GP23": "LED",
-    }
     pin_colors = {
         "GP0": COLORS["orange"],
         "GP1": COLORS["orange"],
@@ -180,34 +223,37 @@ def draw_rp2040(draw: ImageDraw.ImageDraw, base: Image.Image) -> dict[str, tuple
         "GP5": COLORS["green"],
         "GP6": COLORS["orange"],
         "GP23": COLORS["yellow"],
+        "3V3": COLORS["red"],
+        "3V3_BOOT": COLORS["red"],
+        "VIN": COLORS["red"],
+        "VOUT": COLORS["red"],
     }
-    left_gpio = [f"GP{i}" for i in range(15)]
-    right_gpio = [f"GP{i}" for i in range(15, 30)]
-    start_y = y + 212
-    step = 35
-    for i, key in enumerate(left_gpio):
+    start_y = y + 104
+    step = 32
+    for i, (key, label) in enumerate(LEFT_PIN_LAYOUT):
         py = start_y + i * step
         pins[key] = (x + 28, py)
-        suffix = f" {function_labels[key]}" if key in function_labels else ""
-        pin(draw, x + 28, py, f"{key}{suffix}", "left", pin_colors.get(key, COLORS["copper"]))
-    for i, key in enumerate(right_gpio):
+        col = COLORS["black_wire"] if label == "GND" else pin_colors.get(key, COLORS["copper"])
+        pin(draw, x + 28, py, label, "left", col)
+    for i, (key, label) in enumerate(RIGHT_PIN_LAYOUT):
         py = start_y + i * step
         pins[key] = (x + w - 28, py)
-        suffix = f" {function_labels[key]}" if key in function_labels else ""
-        pin(draw, x + w - 28, py, f"{key}{suffix}", "right", pin_colors.get(key, COLORS["copper"]))
+        col = COLORS["black_wire"] if label == "GND" else pin_colors.get(key, COLORS["copper"])
+        pin(draw, x + w - 28, py, label, "right", col)
+    pins["GND_R"] = pins["GND_R1"]
 
-    power_pins = {
-        "5V": (x + 88, y + h - 105),
-        "3V3": (x + 152, y + h - 105),
-        "RUN": (x + 224, y + h - 105),
-        "GND": (x + 288, y + h - 105),
-        "GND_R": (x + w - 28, y + h - 155),
-    }
-    for key, loc in power_pins.items():
+    bottom_x = [x + 92, x + 162, x + 238, x + 308]
+    for (key, label), px in zip(BOTTOM_PIN_LAYOUT, bottom_x):
+        loc = (px, y + h - 68)
         pins[key] = loc
-        col = COLORS["red"] if key in ("5V", "3V3") else COLORS["black_wire"] if key.startswith("GND") else COLORS["gray"]
+        col = COLORS["red"] if label == "3V3" else COLORS["black_wire"] if label == "GND" else COLORS["gray"]
         draw.ellipse(_box((loc[0] - 8, loc[1] - 8, loc[0] + 8, loc[1] + 8)), fill=col, outline=(80, 66, 28), width=2 * SCALE)
-        text(draw, (loc[0], loc[1] + 24), "GND" if key == "GND_R" else key, 17, COLORS["black"], True)
+        text(draw, (loc[0], loc[1] - 24), label, 15, COLORS["black"], True)
+
+    # Unused castellated pads visible in the reference photo.
+    for loc, label in [((x + 104, y + 84), "VBUS"), ((x + 238, y + 112), "VSYS"), ((x + 90, y + 214), "GND"), ((x + 155, y + 214), "VREF")]:
+        draw.ellipse(_box((loc[0] - 8, loc[1] - 8, loc[0] + 8, loc[1] + 8)), fill=COLORS["copper"], outline=(80, 66, 28), width=2 * SCALE)
+        text(draw, (loc[0] + 17, loc[1]), label, 14, COLORS["black"], True, "lm")
 
     for px in (x + 58, x + w - 58):
         for py in (y + 64, y + h - 64):
@@ -308,37 +354,28 @@ def draw_board_labels(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_rp2040_pin_label_overlay(draw: ImageDraw.ImageDraw, pins: dict[str, tuple[float, float]]) -> None:
-    function_labels = {
-        "GP0": "BTN0",
-        "GP1": "BTN1",
-        "GP2": "SDA1",
-        "GP3": "SCL1",
-        "GP4": "SDA0",
-        "GP5": "SCL0",
-        "GP6": "BTN2",
-        "GP23": "LED",
-    }
+    for side, layout in (("left", LEFT_PIN_LAYOUT), ("right", RIGHT_PIN_LAYOUT)):
+        for pin_name, label in layout:
+            x, y = pins[pin_name]
+            label_w = 122 if " " in label else 70
+            if side == "left":
+                box = (x - label_w - 18, y - 12, x - 13, y + 12)
+                anchor = "rm"
+                text_x = x - 18
+            else:
+                box = (x + 13, y - 12, x + label_w + 18, y + 12)
+                anchor = "lm"
+                text_x = x + 18
+            rounded(draw, box, 5, (250, 248, 239), (184, 177, 160), 1)
+            text(draw, (text_x, y), label, 15, COLORS["black"], True, anchor)
 
-    for pin_name in [f"GP{i}" for i in range(30)]:
+    for pin_name, label in BOTTOM_PIN_LAYOUT:
         x, y = pins[pin_name]
-        is_left = pin_name.startswith("GP") and int(pin_name[2:]) < 15
-        label = f"{pin_name} {function_labels[pin_name]}" if pin_name in function_labels else pin_name
-        label_w = 122 if pin_name in function_labels else 62
-        if is_left:
-            box = (x - label_w - 18, y - 12, x - 13, y + 12)
-            anchor = "rm"
-            text_x = x - 18
-        else:
-            box = (x + 13, y - 12, x + label_w + 18, y + 12)
-            anchor = "lm"
-            text_x = x + 18
+        label_w = 72 if label in ("SWCLK", "SWDIO") else 46
+        box = (x - label_w / 2, y - 42, x + label_w / 2, y - 18)
         rounded(draw, box, 5, (250, 248, 239), (184, 177, 160), 1)
-        text(draw, (text_x, y), label, 15, COLORS["black"], True, anchor)
+        text(draw, (x, y - 30), label, 14, COLORS["black"], True)
 
-    for pin_name in ("5V", "3V3", "RUN", "GND"):
-        x, y = pins[pin_name]
-        rounded(draw, (x - 26, y + 12, x + 26, y + 36), 5, (250, 248, 239), (184, 177, 160), 1)
-        text(draw, (x, y + 24), pin_name, 15, COLORS["black"], True)
 
 
 def render(output: str | Path | None = None) -> Path:
