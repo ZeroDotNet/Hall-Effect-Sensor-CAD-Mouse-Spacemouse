@@ -40,8 +40,6 @@
 #include "movement_math.h"
 #include "status_led.h"
 
-#define IO_USERNAME "zerodotnet"
-#define IO_KEY "aio_tMPN11gyavXaOs0C52NxIiOqick1"
 #ifndef ENABLE_LEDS
 #define ENABLE_LEDS 0
 #endif
