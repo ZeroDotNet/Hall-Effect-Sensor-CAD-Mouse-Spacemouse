@@ -39,10 +39,27 @@ void test_tlv493d_backend_maps_three_sensors_to_6dof()
   TEST_ASSERT_EQUAL_INT16(45, out.rz);
 }
 
+void test_tlv493d_single_sensor_maps_three_axes_without_reading_missing_sensors()
+{
+  const float centered[3] = {
+      1.5f, -2.0f, 3.25f};
+
+  Movement6D out;
+  calcTlv493dSingleSensorMovement(centered, 10.0f, out);
+
+  TEST_ASSERT_EQUAL_INT16(15, out.tx);
+  TEST_ASSERT_EQUAL_INT16(-20, out.ty);
+  TEST_ASSERT_EQUAL_INT16(32, out.tz);
+  TEST_ASSERT_EQUAL_INT16(0, out.rx);
+  TEST_ASSERT_EQUAL_INT16(0, out.ry);
+  TEST_ASSERT_EQUAL_INT16(32, out.rz);
+}
+
 int main(int, char **)
 {
   UNITY_BEGIN();
   RUN_TEST(test_hall_backend_keeps_existing_mapping);
   RUN_TEST(test_tlv493d_backend_maps_three_sensors_to_6dof);
+  RUN_TEST(test_tlv493d_single_sensor_maps_three_axes_without_reading_missing_sensors);
   return UNITY_END();
 }

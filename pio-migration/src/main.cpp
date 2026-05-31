@@ -42,6 +42,9 @@
 
 #define IO_USERNAME "zerodotnet"
 #define IO_KEY "aio_tMPN11gyavXaOs0C52NxIiOqick1"
+#ifndef ENABLE_LEDS
+#define ENABLE_LEDS 0
+#endif
 
 #if !defined(SENSOR_BACKEND_HALL) && !defined(SENSOR_BACKEND_TLV493D)
 #define SENSOR_BACKEND_HALL 1
@@ -135,7 +138,7 @@ bool movement3DC = true;
 
 // switch between two modes of operation. The original mapping of buttons including pushing two at once or an alternative mapping where
 // the front button pretends to be three different buttons mapping to three views.
-bool cycleButton = true;
+bool cycleButton = false;
 uint8_t cycleInitialButton = 0; // Added to lowest pseudo button value
 const uint8_t buttonDelay = 20; // 20ms wait time for second button to be pressed
 
@@ -195,6 +198,12 @@ bool invRZ = false; // Rotate around Z axis (twist left/right)
 #ifndef BTN_PIN_2
 #define BTN_PIN_2 2
 #endif
+#ifndef BUTTON_COUNT
+#define BUTTON_COUNT 3
+#endif
+#if BUTTON_COUNT < 0 || BUTTON_COUNT > 3
+#error "BUTTON_COUNT must be between 0 and 3."
+#endif
 
 int PINLIST[8] = {
     // The positions of the reads *JC comments indicate which Hall Effect sensor is connected
@@ -208,8 +217,9 @@ int PINLIST[8] = {
     HES_PIN_9  // HES 9 o'clock near
 };
 
-// *JC added button list for digital inputs
-int BTNLIST[3] = { // Button pin list
+// *JC added button list for digital inputs. BUTTON_COUNT can temporarily disable
+// the button logic without leaving out-of-bounds accesses behind.
+int BTNLIST[3] = {
     BTN_PIN_0,
     BTN_PIN_1,
     BTN_PIN_2};
@@ -387,22 +397,22 @@ void configureAnalogReference()
 // Set any Hall sensor to false to report it as zero and remove its contribution
 // from centered values and movement calculations.
 bool hallSensorEnabled[8] = {
-    true,  // HES0
-    true,  // HES1
-    true,  // HES2
-    true,  // HES3
-    false, // HES6
-    false, // HES7
-    false, // HES8
-    false  // HES9
+    true, // HES0
+    true, // HES1
+    true, // HES2
+    true, // HES3
+    true, // HES6
+    true, // HES7
+    true, // HES8
+    true  // HES9
 };
 
 #if defined(SENSOR_BACKEND_TLV493D)
-static arduino::MbedI2C TlvWire1(I2C0_SDA, I2C0_SCL);
-TLx493D_A1B6 tlvSensor1(TlvWire1, TLx493D_IIC_ADDR_A0_e);
+static arduino::MbedI2C TlvWire0(I2C0_SDA, I2C0_SCL);
+TLx493D_A1B6 tlvSensor1(TlvWire0, TLx493D_IIC_ADDR_A0_e);
 #if TLV493D_SENSOR_COUNT == 3
 static arduino::MbedI2C TlvWire1(I2C1_SDA, I2C1_SCL);
-TLx493D_A1B6 tlvSensor2(Wire, TLx493D_IIC_ADDR_A1_e);
+TLx493D_A1B6 tlvSensor2(TlvWire1, TLx493D_IIC_ADDR_A1_e);
 TLx493D_A1B6 tlvSensor3(TlvWire1, TLx493D_IIC_ADDR_A0_e);
 #endif
 float tlvCenterPoints[TLV493D_SENSOR_COUNT * 3];
@@ -428,41 +438,56 @@ void readAllFromSensors(int *rawReads)
   }
 }
 #else
-void setupTlv493dSensors()
+bool setupTlv493dSensors()
 {
-  // Wire.begin();
-  TlvWire1.begin(0x5E);
-
+  bool ok = tlvSensor1.begin();
 #if TLV493D_SENSOR_COUNT == 3
-  TlvWire1.begin();
+  ok = tlvSensor2.begin() && ok;
+  ok = tlvSensor3.begin() && ok;
 #endif
 
-  tlvSensor1.begin();
-#if TLV493D_SENSOR_COUNT == 3
-  tlvSensor2.begin();
-  tlvSensor3.begin();
-#endif
+  if (!ok)
+  {
+    Serial.println("TLV493D init failed; check I2C pins, address, power, and sensor count build flag.");
+  }
+  return ok;
 }
 
-bool readTlvSensor(TLx493D_A1B6 &sensor, float *readings)
+bool readTlvSensor(TLx493D_A1B6 &sensor, float *readings, const float *fallbackReadings = nullptr)
 {
   double x = 0.0;
   double y = 0.0;
   double z = 0.0;
   const bool ok = sensor.getMagneticField(&x, &y, &z);
-  readings[0] = static_cast<float>(x);
-  readings[1] = static_cast<float>(y);
-  readings[2] = static_cast<float>(z);
+  if (ok)
+  {
+    readings[0] = static_cast<float>(x);
+    readings[1] = static_cast<float>(y);
+    readings[2] = static_cast<float>(z);
+  }
+  else if (fallbackReadings != nullptr)
+  {
+    readings[0] = fallbackReadings[0];
+    readings[1] = fallbackReadings[1];
+    readings[2] = fallbackReadings[2];
+  }
+  else
+  {
+    readings[0] = 0.0f;
+    readings[1] = 0.0f;
+    readings[2] = 0.0f;
+  }
   return ok;
 }
 
-void readAllFromSensors(float *rawReads)
+bool readAllFromSensors(float *rawReads, const float *fallbackReads = nullptr)
 {
-  readTlvSensor(tlvSensor1, &rawReads[0]);
+  bool ok = readTlvSensor(tlvSensor1, &rawReads[0], fallbackReads == nullptr ? nullptr : &fallbackReads[0]);
 #if TLV493D_SENSOR_COUNT == 3
-  readTlvSensor(tlvSensor2, &rawReads[3]);
-  readTlvSensor(tlvSensor3, &rawReads[6]);
+  ok = readTlvSensor(tlvSensor2, &rawReads[3], fallbackReads == nullptr ? nullptr : &fallbackReads[3]) && ok;
+  ok = readTlvSensor(tlvSensor3, &rawReads[6], fallbackReads == nullptr ? nullptr : &fallbackReads[6]) && ok;
 #endif
+  return ok;
 }
 #endif
 
@@ -482,15 +507,25 @@ uint8_t keyState = 0, keyPressed = 0; // C004 - *JC - keyPresed added to keep tr
 
 void readAllFromButtons(uint8_t *buttonValues)
 {
+  for (int i = 0; i < 9; i++)
+  {
+    buttonValues[i] = false;
+  }
+
+#if BUTTON_COUNT == 0
+  keyState = 0;
+  keyPressed = 0;
+  return;
+#endif
+
   for (int i = 1; i < 4; i++)
   { // read real button values
-    buttonValues[i] = !digitalRead(BTNLIST[i - 1]);
+    buttonValues[i] = (i <= BUTTON_COUNT) ? !digitalRead(BTNLIST[i - 1]) : false;
   }
 
   // C002 - *JC changed logic for handling pseudo/logical switch (two buttons pressed at once gives different function)
   // C007 - *JC added entries 4 and 5 for new pseudo buttons. 0 is the existing one.
   // C009 - *JC if CycleButton is set to true then middle button (2) will set pseudo buttons 6, 7 and 8
-  buttonValues[0] = buttonValues[4] = buttonValues[5] = buttonValues[6] = buttonValues[7] = buttonValues[8] = false;
   keyTimeNew = millis();
   switch (keyState)
   {
@@ -633,25 +668,19 @@ void setup()
   ledBegin();
 
 #if STATUS_LED_TEST_ONLY
-#if STATUS_LED_TEST_RGB_PIN_SWEEP
   Serial.begin(250000);
   delay(100);
-#endif
-  ledSolid(0, 0, 0);
   return;
 #endif
 
   // HID protocol is set.  On RP2040 this blocks until the host enumerates the device.
   setupSpaceMouseHid();
 
-  // USB is now live — solid blue to indicate power-on ready.
-  ledSolid(0, 0, 40);
-
   // Begin Serial for debugging
   Serial.begin(115200);
   delay(100);
   // *JC - setup button pins for digitalRead
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < BUTTON_COUNT; i++)
   {
     pinMode(BTNLIST[i], INPUT_PULLUP);
   }
@@ -660,22 +689,15 @@ void setup()
 #if defined(SENSOR_BACKEND_TLV493D)
   setupTlv493dSensors();
   readAllFromSensors(tlvCenterPoints);
-  // Pulse blue during the calibration settle window instead of a plain delay.
-  ledPulseBlue(1000);
   readAllFromSensors(tlvCenterPoints);
   readAllFromSensors(tlvCenterPoints);
 #else
   // Read idle/centre positions for Sensors.
   // *JC - First read gives unpredictable values so do it twice
   readAllFromSensors(centerPoints);
-  // Pulse blue during the calibration settle window instead of a plain delay.
-  ledPulseBlue(1000);
   readAllFromSensors(centerPoints);
   readAllFromSensors(centerPoints);
 #endif
-
-  // Calibration done — back to steady blue.
-  ledSolid(0, 0, 40);
 }
 
 uint8_t keyChange = 0; // C004 - *JC - variable to determine if new key report needs to be sent.
@@ -744,63 +766,11 @@ void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int1
 
 void loop()
 {
+#if ENABLE_LEDS
+  ledUpdate();
+#endif
+
 #if STATUS_LED_TEST_ONLY
-#if STATUS_LED_TEST_RGB_CYCLE
-#if STATUS_LED_TEST_RGB_PIN_SWEEP
-  static const uint8_t candidatePins[] = {12, 16, 17, 18, 19, 20, 21, 22, 23, 24};
-  static const uint8_t colors[][3] = {
-      {255, 0, 0},
-      {0, 255, 0},
-      {0, 0, 255},
-      {255, 255, 0},
-      {0, 255, 255},
-      {255, 0, 255},
-      {255, 255, 255},
-  };
-  static bool announced = false;
-  static uint8_t pinIndex = 0;
-  static uint8_t colorIndex = 0;
-
-  if (!announced)
-  {
-    Serial.println("RGB pin sweep active. If none of these pins lights the WS2812, check the RGB/R58/R68 solder bridge.");
-    announced = true;
-  }
-
-  ledSetPin(candidatePins[pinIndex]);
-  Serial.print("Testing WS2812 on GPIO");
-  Serial.println(candidatePins[pinIndex]);
-#else
-  static const uint8_t colors[][3] = {
-      {255, 0, 0},
-      {0, 255, 0},
-      {0, 0, 255},
-      {255, 255, 0},
-      {0, 255, 255},
-      {255, 0, 255},
-      {255, 255, 255},
-  };
-  static uint8_t colorIndex = 0;
-#endif
-
-  ledSolid(colors[colorIndex][0], colors[colorIndex][1], colors[colorIndex][2]);
-  delay(250);
-  ledSolid(0, 0, 0);
-  delay(250);
-
-  colorIndex = (colorIndex + 1) % (sizeof(colors) / sizeof(colors[0]));
-#if STATUS_LED_TEST_RGB_PIN_SWEEP
-  if (colorIndex == 0)
-  {
-    pinIndex = (pinIndex + 1) % (sizeof(candidatePins) / sizeof(candidatePins[0]));
-  }
-#endif
-#else
-  ledSolid(0, 0, 0);
-  delay(250);
-  ledSolid(255, 255, 255);
-  delay(250);
-#endif
   return;
 #endif
 
@@ -812,7 +782,11 @@ void loop()
   uint8_t buttonReads[9]; // C007 - *JC added two more values for two extra pseudo buttons C009 added another 3 pseudo switches to cycle views when button 2 (front) pressed
 
   // sensor values are read. range should be 176 - 1024 for debug levels other than 1 and 88-860 for debug 1
+#if defined(SENSOR_BACKEND_TLV493D)
+  readAllFromSensors(rawReads, tlvCenterPoints);
+#else
   readAllFromSensors(rawReads);
+#endif
   // button values true or false
   readAllFromButtons(buttonReads);
 
@@ -1005,18 +979,7 @@ void loop()
       Serial.print("Z:");
       Serial.print(centeredTlv[i * 3 + 2], 3);
     }
-    Serial.print(",");
-    Serial.print("But0:");
-    Serial.print(buttonReads[0]);
-    Serial.print(",");
-    Serial.print("But1:");
-    Serial.print(buttonReads[1]);
-    Serial.print(",");
-    Serial.print("But2:");
-    Serial.print(buttonReads[2]);
-    Serial.print(",");
-    Serial.print("But3:");
-    Serial.println(buttonReads[3]);
+
 #else
     Serial.print("HES0:");
     Serial.print(centered[0]);
@@ -1054,6 +1017,18 @@ void loop()
     Serial.print("But3:");
     Serial.println(buttonReads[3]);
 #endif
+    Serial.print(",");
+    Serial.print("But0:");
+    Serial.print(buttonReads[0]);
+    Serial.print(",");
+    Serial.print("But1:");
+    Serial.print(buttonReads[1]);
+    Serial.print(",");
+    Serial.print("But2:");
+    Serial.print(buttonReads[2]);
+    Serial.print(",");
+    Serial.print("But3:");
+    Serial.println(buttonReads[3]);
   }
 
   // Doing all through arithmetic contribution by fdmakara

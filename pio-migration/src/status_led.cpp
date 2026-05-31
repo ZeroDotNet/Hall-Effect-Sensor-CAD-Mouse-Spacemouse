@@ -4,102 +4,110 @@
 #include <Adafruit_NeoPixel.h>
 #include "status_led.h"
 
-#if STATUS_LED_USE_NEOPIXEL
-static Adafruit_NeoPixel _pixel(1, STATUS_LED_PIN, NEO_GRB + NEO_KHZ800);
+#if STATUS_LED_USE_ONBOARD_NEOPIXEL
+static Adafruit_NeoPixel onboardPixel(1, STATUS_LED_ONBOARD_PIN, NEO_GRB + NEO_KHZ800);
 #endif
 
-#if STATUS_LED_USE_BUILTIN && defined(LED_BUILTIN)
-static constexpr bool HAS_BUILTIN_LED = true;
-#else
-static constexpr bool HAS_BUILTIN_LED = false;
+#if STATUS_LED_USE_RING_NEOPIXEL
+static Adafruit_NeoPixel ringPixel(STATUS_LED_RING_COUNT, STATUS_LED_RING_PIN, NEO_GRB + NEO_KHZ800);
 #endif
 
-// Solid blue brightness for the "running" state.  Dim enough not to be distracting.
-static constexpr uint8_t BLUE_STEADY = 40;
-
-// Peak brightness during the calibration breath cycle.
-static constexpr uint8_t BLUE_PEAK = 180;
-
-// Breath period in ms.
-static constexpr uint32_t BREATH_PERIOD_MS = 1200;
-
-void ledBegin()
-{
-#if STATUS_LED_USE_NEOPIXEL
-    _pixel.begin();
-
-    _pixel.clear();
-    _pixel.show();
-#endif
-
-    if (HAS_BUILTIN_LED)
-    {
-        pinMode(LED_BUILTIN, OUTPUT);
-        digitalWrite(LED_BUILTIN, LOW);
-    }
-}
-
-void ledSetPin(uint8_t pin)
-{
-#if STATUS_LED_USE_NEOPIXEL
-    _pixel.clear();
-    _pixel.show();
-
-    _pixel.setPin(pin);
-    _pixel.begin();
-    _pixel.clear();
-    _pixel.show();
-#else
-    (void)pin;
-#endif
-}
-
-int ledGetPin()
-{
-#if STATUS_LED_USE_NEOPIXEL
-    return _pixel.getPin();
-#endif
-    return -1;
-}
+static constexpr uint32_t LED_STEP_MS = 250;
+static constexpr uint8_t STATUS_BLUE = 32;
+static constexpr uint8_t TEST_COLORS[][3] = {
+    {255, 0, 0},
+    {0, 255, 0},
+    {0, 0, 255},
+    {255, 255, 255},
+    {0, 0, 0},
+};
 
 void ledSolid(uint8_t r, uint8_t g, uint8_t b)
 {
-#if STATUS_LED_USE_NEOPIXEL
-    _pixel.setPixelColor(0, _pixel.Color(r, g, b));
-    _pixel.show();
+#if ENABLE_LEDS && STATUS_LED_USE_ONBOARD_NEOPIXEL
+  onboardPixel.setPixelColor(0, onboardPixel.Color(r, g, b));
+  onboardPixel.show();
 #endif
 
-    if (HAS_BUILTIN_LED)
-    {
-        digitalWrite(LED_BUILTIN, (r || g || b) ? HIGH : LOW);
-    }
+#if ENABLE_LEDS && STATUS_LED_USE_RING_NEOPIXEL
+  for (uint16_t i = 0; i < STATUS_LED_RING_COUNT; i++)
+  {
+    ringPixel.setPixelColor(i, ringPixel.Color(r, g, b));
+  }
+  ringPixel.show();
+#endif
+
+#if STATUS_LED_USE_BUILTIN && defined(LED_BUILTIN)
+  digitalWrite(LED_BUILTIN, (r || g || b) ? HIGH : LOW);
+#endif
 }
 
-void ledPulseBlue(uint32_t durationMs)
+void ledBegin()
 {
-    uint32_t start = millis();
-    while (millis() - start < durationMs)
-    {
-        uint32_t phase = (millis() - start) % BREATH_PERIOD_MS;
-        // Triangle wave: 0 → BLUE_PEAK → 0 over one period.
-        uint8_t level = (phase < BREATH_PERIOD_MS / 2)
-                            ? (uint8_t)(phase * BLUE_PEAK / (BREATH_PERIOD_MS / 2))
-                            : (uint8_t)((BREATH_PERIOD_MS - phase) * BLUE_PEAK / (BREATH_PERIOD_MS / 2));
-#if STATUS_LED_USE_NEOPIXEL
-        _pixel.setPixelColor(0, _pixel.Color(0, 0, level));
-        _pixel.show();
+#if ENABLE_LEDS && STATUS_LED_USE_ONBOARD_NEOPIXEL
+  onboardPixel.begin();
+  onboardPixel.clear();
+  onboardPixel.show();
 #endif
-        if (HAS_BUILTIN_LED)
-        {
-            digitalWrite(LED_BUILTIN, level > 0 ? HIGH : LOW);
-        }
-        delay(16); // ~60 fps update rate
-    }
 
-    if (HAS_BUILTIN_LED)
-    {
-        digitalWrite(LED_BUILTIN, LOW);
-    }
+#if ENABLE_LEDS && STATUS_LED_USE_RING_NEOPIXEL
+  ringPixel.begin();
+  ringPixel.clear();
+  ringPixel.show();
+#endif
+
+#if STATUS_LED_USE_BUILTIN && defined(LED_BUILTIN)
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+#endif
+
+#if ENABLE_LEDS && !STATUS_LED_TEST_ONLY
+  ledSolid(0, 0, STATUS_BLUE);
+#endif
+}
+
+void ledUpdate()
+{
+#if !ENABLE_LEDS
+  return;
+#else
+  static uint32_t lastStepMs = 0;
+  static size_t colorIndex = 0;
+  const uint32_t now = millis();
+
+  if (now - lastStepMs < LED_STEP_MS)
+  {
+    return;
+  }
+
+  lastStepMs = now;
+
+#if STATUS_LED_TEST_RGB_PIN_SWEEP && STATUS_LED_USE_ONBOARD_NEOPIXEL
+  static const uint8_t candidatePins[] = {12, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+  static size_t pinIndex = 0;
+
+  if (colorIndex == 0)
+  {
+    onboardPixel.clear();
+    onboardPixel.show();
+    onboardPixel.setPin(candidatePins[pinIndex]);
+    onboardPixel.begin();
+    onboardPixel.clear();
+    onboardPixel.show();
+
+    Serial.print("Testing onboard NeoPixel on GPIO");
+    Serial.println(candidatePins[pinIndex]);
+    pinIndex = (pinIndex + 1) % (sizeof(candidatePins) / sizeof(candidatePins[0]));
+  }
+#endif
+
+#if STATUS_LED_TEST_RGB_CYCLE || STATUS_LED_TEST_RGB_PIN_SWEEP
+  ledSolid(TEST_COLORS[colorIndex][0], TEST_COLORS[colorIndex][1], TEST_COLORS[colorIndex][2]);
+  colorIndex = (colorIndex + 1) % (sizeof(TEST_COLORS) / sizeof(TEST_COLORS[0]));
+#else
+  ledSolid(0, 0, STATUS_BLUE);
+#endif
+#endif
 }
 
 #endif // TARGET_RP2040
