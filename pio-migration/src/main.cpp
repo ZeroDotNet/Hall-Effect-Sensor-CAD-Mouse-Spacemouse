@@ -489,7 +489,74 @@ bool readAllFromSensors(float *rawReads, const float *fallbackReads = nullptr)
 #endif
   return ok;
 }
+
+void printTlvReadings(const float *readings)
+{
+  for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
+  {
+    if (i > 0)
+    {
+      Serial.print(",");
+    }
+    Serial.print("TLV");
+    Serial.print(i + 1);
+    Serial.print("X:");
+    Serial.print(readings[i * 3 + 0], 3);
+    Serial.print(",TLV");
+    Serial.print(i + 1);
+    Serial.print("Y:");
+    Serial.print(readings[i * 3 + 1], 3);
+    Serial.print(",TLV");
+    Serial.print(i + 1);
+    Serial.print("Z:");
+    Serial.print(readings[i * 3 + 2], 3);
+  }
+}
 #endif
+
+void printButtonReadings(const uint8_t *buttonReads, bool endLine)
+{
+  Serial.print(",");
+  Serial.print("But0:");
+  Serial.print(buttonReads[0]);
+  Serial.print(",");
+  Serial.print("But1:");
+  Serial.print(buttonReads[1]);
+  Serial.print(",");
+  Serial.print("But2:");
+  Serial.print(buttonReads[2]);
+  Serial.print(",");
+  Serial.print("But3:");
+  if (endLine)
+  {
+    Serial.println(buttonReads[3]);
+  }
+  else
+  {
+    Serial.print(buttonReads[3]);
+  }
+}
+
+void printMovementReadings(const Movement6D &movement)
+{
+  Serial.print("TX:");
+  Serial.print(movement.tx);
+  Serial.print(",");
+  Serial.print("TY:");
+  Serial.print(movement.ty);
+  Serial.print(",");
+  Serial.print("TZ:");
+  Serial.print(movement.tz);
+  Serial.print(",");
+  Serial.print("RX:");
+  Serial.print(movement.rx);
+  Serial.print(",");
+  Serial.print("RY:");
+  Serial.print(movement.ry);
+  Serial.print(",");
+  Serial.print("RZ:");
+  Serial.print(movement.rz);
+}
 
 // *JC Function to read and store button values
 // When pressing two buttons at once for a different function, one button is usually pressed slightly before the other.
@@ -798,25 +865,7 @@ void loop()
     {
       Serial.print('\r');
     }
-    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
-    {
-      if (i > 0)
-      {
-        Serial.print(",");
-      }
-      Serial.print("TLV");
-      Serial.print(i + 1);
-      Serial.print("X:");
-      Serial.print(rawReads[i * 3 + 0], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Y:");
-      Serial.print(rawReads[i * 3 + 1], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Z:");
-      Serial.print(rawReads[i * 3 + 2], 3);
-    }
+    printTlvReadings(rawReads);
     if (debug1SameLine)
     {
       Serial.print("    ");
@@ -894,25 +943,7 @@ void loop()
   if (debug == 2)
   {
 #if defined(SENSOR_BACKEND_TLV493D)
-    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
-    {
-      if (i > 0)
-      {
-        Serial.print(",");
-      }
-      Serial.print("TLV");
-      Serial.print(i + 1);
-      Serial.print("X:");
-      Serial.print(centeredTlv[i * 3 + 0], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Y:");
-      Serial.print(centeredTlv[i * 3 + 1], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Z:");
-      Serial.print(centeredTlv[i * 3 + 2], 3);
-    }
+    printTlvReadings(centeredTlv);
     Serial.println();
 #else
     Serial.print("HES0:");
@@ -960,26 +991,7 @@ void loop()
   if (debug == 3)
   {
 #if defined(SENSOR_BACKEND_TLV493D)
-    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
-    {
-      if (i > 0)
-      {
-        Serial.print(",");
-      }
-      Serial.print("TLV");
-      Serial.print(i + 1);
-      Serial.print("X:");
-      Serial.print(centeredTlv[i * 3 + 0], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Y:");
-      Serial.print(centeredTlv[i * 3 + 1], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Z:");
-      Serial.print(centeredTlv[i * 3 + 2], 3);
-    }
-
+    printTlvReadings(centeredTlv);
 #else
     Serial.print("HES0:");
     Serial.print(centered[0]);
@@ -1004,31 +1016,8 @@ void loop()
     Serial.print(",");
     Serial.print("HES9:");
     Serial.print(centered[7]);
-    Serial.print(",");
-    Serial.print("But0:");
-    Serial.print(buttonReads[0]);
-    Serial.print(",");
-    Serial.print("But1:");
-    Serial.print(buttonReads[1]);
-    Serial.print(",");
-    Serial.print("But2:");
-    Serial.print(buttonReads[2]);
-    Serial.print(",");
-    Serial.print("But3:");
-    Serial.println(buttonReads[3]);
 #endif
-    Serial.print(",");
-    Serial.print("But0:");
-    Serial.print(buttonReads[0]);
-    Serial.print(",");
-    Serial.print("But1:");
-    Serial.print(buttonReads[1]);
-    Serial.print(",");
-    Serial.print("But2:");
-    Serial.print(buttonReads[2]);
-    Serial.print(",");
-    Serial.print("But3:");
-    Serial.println(buttonReads[3]);
+    printButtonReadings(buttonReads, true);
   }
 
   // Doing all through arithmetic contribution by fdmakara
@@ -1093,47 +1082,14 @@ void loop()
   // Report translation and rotation values if enabled. Approx -800 to 800 depending on the parameter.
   if (debug == 4)
   {
-    Serial.print("TX:");
-    Serial.print(movement.tx);
-    Serial.print(",");
-    Serial.print("TY:");
-    Serial.print(movement.ty);
-    Serial.print(",");
-    Serial.print("TZ:");
-    Serial.print(movement.tz);
-    Serial.print(",");
-    Serial.print("RX:");
-    Serial.print(movement.rx);
-    Serial.print(",");
-    Serial.print("RY:");
-    Serial.print(movement.ry);
-    Serial.print(",");
-    Serial.print("RZ:");
-    Serial.println(movement.rz);
+    printMovementReadings(movement);
+    Serial.println();
   }
   // Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
   if (debug == 5)
   {
 #if defined(SENSOR_BACKEND_TLV493D)
-    for (int i = 0; i < TLV493D_SENSOR_COUNT; i++)
-    {
-      if (i > 0)
-      {
-        Serial.print(",");
-      }
-      Serial.print("TLV");
-      Serial.print(i + 1);
-      Serial.print("X:");
-      Serial.print(centeredTlv[i * 3 + 0], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Y:");
-      Serial.print(centeredTlv[i * 3 + 1], 3);
-      Serial.print(",TLV");
-      Serial.print(i + 1);
-      Serial.print("Z:");
-      Serial.print(centeredTlv[i * 3 + 2], 3);
-    }
+    printTlvReadings(centeredTlv);
     Serial.print("||");
 #else
     Serial.print("HES0:");
@@ -1161,23 +1117,8 @@ void loop()
     Serial.print(centered[7]);
     Serial.print("||");
 #endif
-    Serial.print("TX:");
-    Serial.print(movement.tx);
-    Serial.print(",");
-    Serial.print("TY:");
-    Serial.print(movement.ty);
-    Serial.print(",");
-    Serial.print("TZ:");
-    Serial.print(movement.tz);
-    Serial.print(",");
-    Serial.print("RX:");
-    Serial.print(movement.rx);
-    Serial.print(",");
-    Serial.print("RY:");
-    Serial.print(movement.ry);
-    Serial.print(",");
-    Serial.print("RZ:");
-    Serial.println(movement.rz);
+    printMovementReadings(movement);
+    Serial.println();
   }
 
   // Send data to the 3DConnexion software.

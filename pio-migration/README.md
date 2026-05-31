@@ -57,6 +57,11 @@ There are also shortcut environments:
 ```sh
 pio run -e rp2040-tlv493d-3
 pio run -e rp2040-tlv493d-1
+pio run -e rp2040-tlv493d-1-teleplot-raw
+pio run -e rp2040-tlv493d-1-teleplot-centered
+pio run -e rp2040-tlv493d-1-teleplot-filtered
+pio run -e rp2040-tlv493d-1-teleplot-motion
+pio run -e rp2040-tlv493d-1-teleplot-side-by-side
 pio run -e rp2040-tlv493d-3-teleplot
 pio run -e rp2040-tlv493d-3-teleplot-raw
 pio run -e rp2040-tlv493d-3-teleplot-centered
@@ -119,14 +124,19 @@ into two parts:
 1. The firmware emits debug lines in Teleplot-friendly `name:value` form over USB serial.
 2. A host-side PowerShell bridge forwards those serial lines to `127.0.0.1:47269` over UDP.
 
-Use the Teleplot-ready environment to build and upload firmware with debug output enabled:
+Use the Teleplot-ready environment to build and upload firmware with debug output enabled. For the current 1-sensor prototype:
 
 ```sh
-pio run --target upload -e rp2040-tlv493d-3-teleplot-motion
+pio run --target upload -e rp2040-tlv493d-1-teleplot-motion
 ```
 
 Available Teleplot environments are:
 
+- `rp2040-tlv493d-1-teleplot-raw`: `DEBUG_LEVEL=1`
+- `rp2040-tlv493d-1-teleplot-centered`: `DEBUG_LEVEL=2`
+- `rp2040-tlv493d-1-teleplot-filtered`: `DEBUG_LEVEL=3`
+- `rp2040-tlv493d-1-teleplot-motion`: `DEBUG_LEVEL=4`
+- `rp2040-tlv493d-1-teleplot-side-by-side`: `DEBUG_LEVEL=5`
 - `rp2040-tlv493d-3-teleplot-raw`: `DEBUG_LEVEL=1`
 - `rp2040-tlv493d-3-teleplot-centered`: `DEBUG_LEVEL=2`
 - `rp2040-tlv493d-3-teleplot-filtered`: `DEBUG_LEVEL=3`
@@ -139,7 +149,7 @@ Each of them enables:
 -D DEBUG_TELEPLOT=1
 ```
 
-The compatibility alias `rp2040-tlv493d-3-teleplot` still maps to the motion view.
+The compatibility aliases `rp2040-tlv493d-1-teleplot` and `rp2040-tlv493d-3-teleplot` map to the motion view.
 
 Run the host bridge with:
 
@@ -157,9 +167,9 @@ The VS Code tasks now let you pick the Teleplot firmware environment for build/u
 
 Stop the monitor/bridge session before uploading a different Teleplot firmware mode, otherwise the USB serial port will stay busy and the RP2040 reset touch cannot open `COM9`.
 
-For the 3-sensor TLV493D RP2040 wiring, sensor 1 and sensor 2 use the default
-I2C bus on GP4/GP5 with addresses `A0` and `A1`. Sensor 3 uses a second Mbed
-I2C instance on GP2/GP3 with address `A0`.
+For the 1-sensor TLV493D RP2040 wiring, sensor 1 uses I2C0 on GP4/GP5 with
+address `A0`. For the 3-sensor wiring, sensor 1 stays on GP4/GP5; sensors 2 and
+3 share I2C1 on GP2/GP3 with addresses `A1` and `A0`.
 
 TLV493D scaling can be tuned with build flags:
 
