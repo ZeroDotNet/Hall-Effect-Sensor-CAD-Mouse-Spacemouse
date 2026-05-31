@@ -40,6 +40,9 @@
 #include "movement_math.h"
 #include "status_led.h"
 
+#define IO_USERNAME "zerodotnet"
+#define IO_KEY "aio_tMPN11gyavXaOs0C52NxIiOqick1"
+
 #if !defined(SENSOR_BACKEND_HALL) && !defined(SENSOR_BACKEND_TLV493D)
 #define SENSOR_BACKEND_HALL 1
 #endif
@@ -104,8 +107,23 @@ using namespace ifx::tlx493d;
 // 4: Output translation and rotation values. Approx -500 to +500 depending on the parameter. *JC ADC reference 2.56v
 // 5: Output debug 3 and 4 side by side for direct cause and effect reference. *JC ADC reference 2.56v
 // 6: *JC Output debug info for pseudo key state machine. ( two keys pressed at once to simulate another key press)
-int debug = 0;
-bool debug1SameLine = true; // true: refresh one terminal line. false: print one sample per line.
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL 0
+#endif
+#ifndef DEBUG_TELEPLOT
+#define DEBUG_TELEPLOT 0
+#endif
+#ifndef STATUS_LED_TEST_ONLY
+#define STATUS_LED_TEST_ONLY 0
+#endif
+#ifndef STATUS_LED_TEST_RGB_CYCLE
+#define STATUS_LED_TEST_RGB_CYCLE 0
+#endif
+#ifndef STATUS_LED_TEST_RGB_PIN_SWEEP
+#define STATUS_LED_TEST_RGB_PIN_SWEEP 0
+#endif
+int debug = DEBUG_LEVEL;
+bool debug1SameLine = DEBUG_TELEPLOT == 0; // Teleplot forwarding needs one sample per line.
 
 // Choose between 3DConnexion default movement or Teaching Tech's
 // With 3DConnexion you push the joystick away from you to zoom out and towards you to zoom in.
@@ -380,7 +398,8 @@ bool hallSensorEnabled[8] = {
 };
 
 #if defined(SENSOR_BACKEND_TLV493D)
-TLx493D_A1B6 tlvSensor1(Wire, TLx493D_IIC_ADDR_A0_e);
+static arduino::MbedI2C TlvWire1(I2C0_SDA, I2C0_SCL);
+TLx493D_A1B6 tlvSensor1(TlvWire1, TLx493D_IIC_ADDR_A0_e);
 #if TLV493D_SENSOR_COUNT == 3
 static arduino::MbedI2C TlvWire1(I2C1_SDA, I2C1_SCL);
 TLx493D_A1B6 tlvSensor2(Wire, TLx493D_IIC_ADDR_A1_e);
@@ -411,7 +430,9 @@ void readAllFromSensors(int *rawReads)
 #else
 void setupTlv493dSensors()
 {
-  Wire.begin();
+  // Wire.begin();
+  TlvWire1.begin(0x5E);
+
 #if TLV493D_SENSOR_COUNT == 3
   TlvWire1.begin();
 #endif
@@ -611,6 +632,15 @@ void setup()
 {
   ledBegin();
 
+#if STATUS_LED_TEST_ONLY
+#if STATUS_LED_TEST_RGB_PIN_SWEEP
+  Serial.begin(250000);
+  delay(100);
+#endif
+  ledSolid(0, 0, 0);
+  return;
+#endif
+
   // HID protocol is set.  On RP2040 this blocks until the host enumerates the device.
   setupSpaceMouseHid();
 
@@ -618,7 +648,7 @@ void setup()
   ledSolid(0, 0, 40);
 
   // Begin Serial for debugging
-  Serial.begin(250000);
+  Serial.begin(115200);
   delay(100);
   // *JC - setup button pins for digitalRead
   for (int i = 0; i < 3; i++)
@@ -714,6 +744,66 @@ void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int1
 
 void loop()
 {
+#if STATUS_LED_TEST_ONLY
+#if STATUS_LED_TEST_RGB_CYCLE
+#if STATUS_LED_TEST_RGB_PIN_SWEEP
+  static const uint8_t candidatePins[] = {12, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+  static const uint8_t colors[][3] = {
+      {255, 0, 0},
+      {0, 255, 0},
+      {0, 0, 255},
+      {255, 255, 0},
+      {0, 255, 255},
+      {255, 0, 255},
+      {255, 255, 255},
+  };
+  static bool announced = false;
+  static uint8_t pinIndex = 0;
+  static uint8_t colorIndex = 0;
+
+  if (!announced)
+  {
+    Serial.println("RGB pin sweep active. If none of these pins lights the WS2812, check the RGB/R58/R68 solder bridge.");
+    announced = true;
+  }
+
+  ledSetPin(candidatePins[pinIndex]);
+  Serial.print("Testing WS2812 on GPIO");
+  Serial.println(candidatePins[pinIndex]);
+#else
+  static const uint8_t colors[][3] = {
+      {255, 0, 0},
+      {0, 255, 0},
+      {0, 0, 255},
+      {255, 255, 0},
+      {0, 255, 255},
+      {255, 0, 255},
+      {255, 255, 255},
+  };
+  static uint8_t colorIndex = 0;
+#endif
+
+  ledSolid(colors[colorIndex][0], colors[colorIndex][1], colors[colorIndex][2]);
+  delay(250);
+  ledSolid(0, 0, 0);
+  delay(250);
+
+  colorIndex = (colorIndex + 1) % (sizeof(colors) / sizeof(colors[0]));
+#if STATUS_LED_TEST_RGB_PIN_SWEEP
+  if (colorIndex == 0)
+  {
+    pinIndex = (pinIndex + 1) % (sizeof(candidatePins) / sizeof(candidatePins[0]));
+  }
+#endif
+#else
+  ledSolid(0, 0, 0);
+  delay(250);
+  ledSolid(255, 255, 255);
+  delay(250);
+#endif
+  return;
+#endif
+
 #if defined(SENSOR_BACKEND_TLV493D)
   float rawReads[TLV493D_SENSOR_COUNT * 3], centeredTlv[TLV493D_SENSOR_COUNT * 3];
 #else

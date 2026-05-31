@@ -11,7 +11,7 @@
 #if defined(TARGET_RP2040) && defined(DEVICE_USBDEVICE) && defined(SERIAL_CDC)
 #include "USB/PluggableUSBDevice.h"
 
-arduino::PluggableUSBDevice& PluggableUSBD()
+arduino::PluggableUSBDevice &PluggableUSBD()
 {
     static arduino::PluggableUSBDevice obj(0x256f, 0xc631);
     return obj;

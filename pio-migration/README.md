@@ -57,7 +57,105 @@ There are also shortcut environments:
 ```sh
 pio run -e rp2040-tlv493d-3
 pio run -e rp2040-tlv493d-1
+pio run -e rp2040-tlv493d-3-teleplot
+pio run -e rp2040-tlv493d-3-teleplot-raw
+pio run -e rp2040-tlv493d-3-teleplot-centered
+pio run -e rp2040-tlv493d-3-teleplot-filtered
+pio run -e rp2040-tlv493d-3-teleplot-motion
+pio run -e rp2040-tlv493d-3-teleplot-side-by-side
+pio run -e rp2040-led-test
+pio run -e rp2040-rgb-led-test
+pio run -e rp2040-rgb-led-scan
 ```
+
+## RP2040 upload on Windows
+
+Use the validated upload command:
+
+```sh
+pio run --target upload -e rp2040-tlv493d-3
+```
+
+For the Pico environment, the upload step uses a custom UF2 uploader. It will
+reset the board over USB serial when a matching COM port is available, then
+copy the generated UF2 to the `RPI-RP2` boot drive. This avoids the default
+`rp2040load` path, which was failing on Windows.
+
+If the board is already in BOOTSEL mode, the same upload command still works.
+
+If multiple serial devices are connected, pass an explicit port:
+
+```sh
+pio run --target upload -e rp2040-tlv493d-3 --upload-port COM9
+```
+
+VS Code tasks are available in `.vscode/tasks.json` for build and upload.
+
+## RP2040 onboard LED diagnostics
+
+Two dedicated LED test environments are available:
+
+```sh
+pio run --target upload -e rp2040-led-test
+pio run --target upload -e rp2040-rgb-led-test
+```
+
+If the RGB LED still does not light, run the pin sweep build:
+
+```sh
+pio run --target upload -e rp2040-rgb-led-scan
+pio device monitor -b 250000
+```
+
+That test cycles WS2812 output across GPIO16-GPIO24 and prints the current pin over serial.
+If none of those pins lights the onboard RGB LED, the practical next check is the board hardware:
+many YD-RP2040 boards leave the RGB LED disconnected until the `RGB`/`R58`/`R68` solder bridge is closed.
+
+## Teleplot debug forwarding
+
+The RP2040 cannot send UDP directly to `127.0.0.1`, so Teleplot support is split
+into two parts:
+
+1. The firmware emits debug lines in Teleplot-friendly `name:value` form over USB serial.
+2. A host-side PowerShell bridge forwards those serial lines to `127.0.0.1:47269` over UDP.
+
+Use the Teleplot-ready environment to build and upload firmware with debug output enabled:
+
+```sh
+pio run --target upload -e rp2040-tlv493d-3-teleplot-motion
+```
+
+Available Teleplot environments are:
+
+- `rp2040-tlv493d-3-teleplot-raw`: `DEBUG_LEVEL=1`
+- `rp2040-tlv493d-3-teleplot-centered`: `DEBUG_LEVEL=2`
+- `rp2040-tlv493d-3-teleplot-filtered`: `DEBUG_LEVEL=3`
+- `rp2040-tlv493d-3-teleplot-motion`: `DEBUG_LEVEL=4`
+- `rp2040-tlv493d-3-teleplot-side-by-side`: `DEBUG_LEVEL=5`
+
+Each of them enables:
+
+```ini
+-D DEBUG_TELEPLOT=1
+```
+
+The compatibility alias `rp2040-tlv493d-3-teleplot` still maps to the motion view.
+
+Run the host bridge with:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\scripts\serial_to_teleplot.ps1 -SerialPort COM9 -BaudRate 250000 -UdpHost 127.0.0.1 -UdpPort 47269
+```
+
+To start the bridge and serial monitor together in one action:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\scripts\start_teleplot_session.ps1 -SerialPort COM9 -BaudRate 250000 -UdpHost 127.0.0.1 -UdpPort 47269
+```
+
+The VS Code tasks now let you pick the Teleplot firmware environment for build/upload, and `Start Teleplot Session` starts both the UDP bridge and the serial monitor.
+
+Stop the monitor/bridge session before uploading a different Teleplot firmware mode, otherwise the USB serial port will stay busy and the RP2040 reset touch cannot open `COM9`.
 
 For the 3-sensor TLV493D RP2040 wiring, sensor 1 and sensor 2 use the default
 I2C bus on GP4/GP5 with addresses `A0` and `A1`. Sensor 3 uses a second Mbed

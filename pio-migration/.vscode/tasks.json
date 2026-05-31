@@ -1,0 +1,137 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build rp2040-tlv493d-3",
+      "type": "shell",
+      "command": "pio",
+      "args": [
+        "run",
+        "--environment",
+        "rp2040-tlv493d-3"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Upload rp2040-tlv493d-3",
+      "type": "shell",
+      "command": "pio",
+      "args": [
+        "run",
+        "--target",
+        "upload",
+        "--environment",
+        "rp2040-tlv493d-3"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build rp2040-tlv493d-3 Teleplot",
+      "type": "shell",
+      "command": "pio",
+      "args": [
+        "run",
+        "--environment",
+        "${input:teleplotEnv}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Upload rp2040-tlv493d-3 Teleplot",
+      "type": "shell",
+      "command": "pio",
+      "args": [
+        "run",
+        "--target",
+        "upload",
+        "--environment",
+        "${input:teleplotEnv}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Bridge Serial To Teleplot",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/serial_to_teleplot.ps1",
+        "-SerialPort",
+        "${input:teleplotSerialPort}",
+        "-BaudRate",
+        "250000",
+        "-UdpHost",
+        "127.0.0.1",
+        "-UdpPort",
+        "47269"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Teleplot Session",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/start_teleplot_session.ps1",
+        "-SerialPort",
+        "${input:teleplotSerialPort}",
+        "-BaudRate",
+        "250000",
+        "-UdpHost",
+        "127.0.0.1",
+        "-UdpPort",
+        "47269"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "teleplotEnv",
+      "type": "pickString",
+      "description": "Teleplot firmware environment",
+      "options": [
+        "rp2040-tlv493d-3-teleplot-raw",
+        "rp2040-tlv493d-3-teleplot-centered",
+        "rp2040-tlv493d-3-teleplot-filtered",
+        "rp2040-tlv493d-3-teleplot-motion",
+        "rp2040-tlv493d-3-teleplot-side-by-side"
+      ],
+      "default": "rp2040-tlv493d-3-teleplot-motion"
+    },
+    {
+      "id": "teleplotSerialPort",
+      "type": "promptString",
+      "description": "RP2040 serial port for the Teleplot bridge",
+      "default": "COM9"
+    }
+  ]
+}
