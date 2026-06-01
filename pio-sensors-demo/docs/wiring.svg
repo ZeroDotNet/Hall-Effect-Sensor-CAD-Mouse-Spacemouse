@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Raspberry Pi Pico TLV493D Servo LED Wiring</title>
+  <desc id="desc">Wiring diagram for the Magnetic Field Puppet demo using Pico GP4 GP5 GP15 and GP16.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.panel{fill:#ffffff;stroke:#1f2937;stroke-width:2}.pin{fill:#e5e7eb;stroke:#374151;stroke-width:1}
+      .label{font:600 20px Arial,sans-serif;fill:#111827}.small{font:15px Arial,sans-serif;fill:#374151}.tiny{font:13px Arial,sans-serif;fill:#374151}
+      .wire{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}.sda{stroke:#2563eb}.scl{stroke:#7c3aed}.pwm{stroke:#ea580c}.led{stroke:#16a34a}.vcc{stroke:#dc2626}.gnd{stroke:#111827}
+      .callout{fill:#eef2ff;stroke:#4338ca;stroke-width:1.5}.warn{fill:#fff7ed;stroke:#c2410c;stroke-width:1.5}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="760"/>
+
+  <rect class="panel" x="90" y="90" width="270" height="560" rx="18"/>
+  <text class="label" x="150" y="130">Raspberry Pi Pico</text>
+  <rect class="pin" x="120" y="185" width="86" height="36" rx="6"/><text class="small" x="137" y="209">3V3</text>
+  <rect class="pin" x="120" y="245" width="86" height="36" rx="6"/><text class="small" x="137" y="269">GND</text>
+  <rect class="pin" x="244" y="185" width="86" height="36" rx="6"/><text class="small" x="264" y="209">GP4</text>
+  <rect class="pin" x="244" y="245" width="86" height="36" rx="6"/><text class="small" x="264" y="269">GP5</text>
+  <rect class="pin" x="244" y="365" width="86" height="36" rx="6"/><text class="small" x="260" y="389">GP15</text>
+  <rect class="pin" x="244" y="425" width="86" height="36" rx="6"/><text class="small" x="260" y="449">GP16</text>
+  <rect class="pin" x="120" y="545" width="86" height="36" rx="6"/><text class="small" x="137" y="569">GND</text>
+
+  <rect class="panel" x="620" y="80" width="250" height="190" rx="16"/>
+  <text class="label" x="685" y="120">TLV493D</text>
+  <text class="small" x="668" y="148">3-axis magnetic sensor</text>
+  <rect class="pin" x="650" y="182" width="78" height="30" rx="5"/><text class="tiny" x="674" y="202">SDA</text>
+  <rect class="pin" x="762" y="182" width="78" height="30" rx="5"/><text class="tiny" x="786" y="202">SCL</text>
+  <rect class="pin" x="650" y="225" width="78" height="30" rx="5"/><text class="tiny" x="674" y="245">VCC</text>
+  <rect class="pin" x="762" y="225" width="78" height="30" rx="5"/><text class="tiny" x="787" y="245">GND</text>
+
+  <rect class="panel" x="640" y="340" width="230" height="150" rx="16"/>
+  <text class="label" x="710" y="382">Servo</text>
+  <text class="small" x="682" y="410">pointer output</text>
+  <rect class="pin" x="665" y="440" width="62" height="30" rx="5"/><text class="tiny" x="679" y="460">SIG</text>
+  <rect class="pin" x="742" y="440" width="48" height="30" rx="5"/><text class="tiny" x="755" y="460">5V</text>
+  <rect class="pin" x="805" y="440" width="48" height="30" rx="5"/><text class="tiny" x="813" y="460">GND</text>
+
+  <rect class="panel" x="640" y="560" width="230" height="110" rx="16"/>
+  <text class="label" x="690" y="600">FZ1556 LED</text>
+  <rect class="pin" x="665" y="625" width="62" height="30" rx="5"/><text class="tiny" x="681" y="645">IN</text>
+  <rect class="pin" x="742" y="625" width="48" height="30" rx="5"/><text class="tiny" x="752" y="645">3V3</text>
+  <rect class="pin" x="805" y="625" width="48" height="30" rx="5"/><text class="tiny" x="813" y="645">GND</text>
+
+  <rect class="panel" x="965" y="355" width="145" height="95" rx="14"/>
+  <text class="small" x="991" y="392">External</text>
+  <text class="label" x="999" y="422">5 V</text>
+
+  <path class="wire sda" d="M330 203 C460 160 520 197 650 197"/><text class="small" x="430" y="165">SDA GP4</text>
+  <path class="wire scl" d="M330 263 C475 230 560 197 762 197"/><text class="small" x="450" y="238">SCL GP5</text>
+  <path class="wire vcc" d="M206 203 C395 92 540 240 650 240"/><text class="small" x="395" y="108">3V3</text>
+  <path class="wire gnd" d="M206 263 C420 310 560 240 762 240"/>
+  <path class="wire pwm" d="M330 383 C455 382 530 455 665 455"/><text class="small" x="430" y="410">Servo signal GP15</text>
+  <path class="wire led" d="M330 443 C475 520 535 640 665 640"/><text class="small" x="402" y="540">LED PWM GP16</text>
+  <path class="wire vcc" d="M965 402 C925 422 855 438 790 455"/>
+  <path class="wire gnd" d="M206 563 C415 705 695 708 805 640"/>
+  <path class="wire gnd" d="M206 563 C458 555 670 500 805 455"/>
+  <path class="wire vcc" d="M206 203 C390 640 600 640 742 640"/>
+
+  <rect class="callout" x="80" y="690" width="500" height="42" rx="8"/>
+  <text class="small" x="100" y="716">All grounds must be common: Pico, TLV493D, LED, and external servo supply.</text>
+  <rect class="warn" x="650" y="700" width="450" height="42" rx="8"/>
+  <text class="small" x="670" y="726">Do not power the servo from Pico 3V3. Use external 5 V.</text>
+</svg>

@@ -51,6 +51,7 @@
 // 5: Output debug 3 and 4 side by side for direct cause and effect reference. *JC ADC reference 2.56v
 // 6: *JC Output debug info for pseudo key state machine. ( two keys pressed at once to simulate another key press)
 int debug = 5;
+<<<<<<< HEAD
 
 // *JC - MPU-6050 variables for gyroscope fusion
 MPU6050 mpu;
@@ -61,6 +62,8 @@ unsigned long last_mpu_time = 0;      // For delta_time calculation
 const float GYRO_ALPHA = 0.97;        // Complementary filter weight (gyro trust)
 const float GYRO_250_SCALE = 131.0;   // Scale factor for ±250°/s range
 const float GYRO_DPS_TO_CMD = 6.0;    // Convert gyro °/s to HID command scale
+=======
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
 
 // Choose between 3DConnexion default movement or Teaching Tech's
 // With 3DConnexion you push the joystick away from you to zoom out and towards you to zoom in.
@@ -68,7 +71,11 @@ const float GYRO_DPS_TO_CMD = 6.0;    // Convert gyro °/s to HID command scale
 // With the Teaching Tech default, these two axis are swapped so that pulling up or pushing down the knob controls zoom
 // and pushing away or pulling it towards you controls up and down. I prefer this.
 // set to true for 3DConnection movement.
+<<<<<<< HEAD
 bool movement3DC = false;
+=======
+bool movement3DC  = true;
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
 
 // switch between two modes of operation. The original mapping of buttons including pushing two at once or an alternative mapping where
 // the front button pretends to be three different buttons mapping to three views.
@@ -915,6 +922,7 @@ void loop()
     Serial.print("RZ:");
     Serial.println(rotZ);
   }
+<<<<<<< HEAD
   // Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
   if (debug == 5)
   {
@@ -959,6 +967,24 @@ void loop()
     Serial.print(",");
     Serial.print("RZ:");
     Serial.println(rotZ);
+=======
+// Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
+  if(debug == 5){
+    Serial.print("HES0:"); Serial.print(centered[0]); Serial.print(",");
+    Serial.print("HES1:"); Serial.print(centered[1]); Serial.print(",");
+    Serial.print("HES2:"); Serial.print(centered[2]); Serial.print(",");
+    Serial.print("HES3:"); Serial.print(centered[3]); Serial.print(",");
+    Serial.print("HES6:"); Serial.print(centered[4]); Serial.print(",");
+    Serial.print("HES7:"); Serial.print(centered[5]); Serial.print(",");
+    Serial.print("HES8:"); Serial.print(centered[6]); Serial.print(",");
+    Serial.print("HES9:"); Serial.print(centered[7]); Serial.print("||");
+    Serial.print("TX:"); Serial.print(transX); Serial.print(",");
+    Serial.print("TY:"); Serial.print(transY); Serial.print(",");
+    Serial.print("TZ:"); Serial.print(transZ); Serial.print(",");
+    Serial.print("RX:"); Serial.print(rotX); Serial.print(",");
+    Serial.print("RY:"); Serial.print(rotY); Serial.print(",");
+   Serial.print("RZ:"); Serial.println(rotZ);
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
   }
 
   // *JC - Debug level 7: MPU-6050 gyroscope data for diagnostics
