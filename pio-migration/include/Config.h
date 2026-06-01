@@ -37,7 +37,7 @@ constexpr uint8_t NUM_BUTTON_VALUES = 9;
 constexpr uint8_t HID_BUTTON_REPORT_BYTES = 4;
 
 #ifndef SPACEMOUSE_DEBUG
-#define SPACEMOUSE_DEBUG 1
+#define SPACEMOUSE_DEBUG 0
 #endif
 
 #ifndef SPACEMOUSE_DEBUG_SAME_LINE
