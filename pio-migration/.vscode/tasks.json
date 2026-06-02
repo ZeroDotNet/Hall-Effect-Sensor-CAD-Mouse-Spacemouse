@@ -30,10 +30,7 @@
       "options": {
         "cwd": "${workspaceFolder}"
       },
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
+      "group": "build",
       "problemMatcher": []
     },
     {
@@ -111,6 +108,18 @@
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
+    },
+    {
+      "type": "PlatformIO",
+      "task": "Upload",
+      "problemMatcher": [
+        "$platformio"
+      ],
+      "label": "PlatformIO: Upload",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ],
   "inputs": [
@@ -130,8 +139,8 @@
     {
       "id": "teleplotSerialPort",
       "type": "promptString",
-      "description": "RP2040 serial port for the Teleplot bridge",
-      "default": "COM9"
+      "description": "RP2040 serial port for the Teleplot bridge"
+      
     }
   ]
 }

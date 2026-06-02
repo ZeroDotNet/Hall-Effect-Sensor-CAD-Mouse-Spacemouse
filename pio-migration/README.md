@@ -26,7 +26,6 @@ Build from this folder with:
 ../pio.ps1 run -e esp32s3
 ```
 
-<<<<<<< HEAD
 Use the repository wrapper `../pio.ps1` on Windows. It runs PlatformIO from the
 local Python 3.12 virtual environment and keeps PlatformIO's core/cache local to
 this repo, avoiding conflicts with global Python 3.14 installations.
@@ -187,7 +186,7 @@ TLV493D scaling can be tuned with build flags:
 -D TLV493D_SCALE=10.0f
 -D TLV493D_DEADZONE=0.4f
 ```
-=======
+
 Run native logic tests with:
 
 ```sh
@@ -300,4 +299,3 @@ Board-specific pin overrides live in `platformio.ini` through `HES_PIN_*` and
 - Debug level 4/5 confirms expected axis mapping.
 - All physical and pseudo buttons generate the intended report actions.
 - For AVR/ESP32-S3, persisted calibration/preferences survive a power cycle.
->>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
