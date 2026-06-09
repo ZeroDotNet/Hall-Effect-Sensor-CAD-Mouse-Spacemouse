@@ -1,0 +1,9 @@
+{
+  "additionalFiles": "..\\..\\..,..\\..\\..",
+  "compiler.optimization_flags": "",
+  "customBuildProperties": "",
+  "fqbn": "spacemouse:avr:micro",
+  "hardwareFolders": "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7,C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7",
+  "otherLibrariesFolders": "C:\\Users\\nicol\\Documents\\Arduino\\libraries",
+  "sketchLocation": "Y:\\Hall-Effect-Sensor-CAD-Mouse-Spacemouse\\HE_Spacemouse"
+}

@@ -28,15 +28,19 @@
  * C003 - 25-Jul-24 - Added define for movement3DC to switch between default 3DConnexion axis movement and Teaching Techs default movement
  * C004 - 04-Aug-24 - bug fix - Changed key reporting so that a zero report is sent when the final key is released.
  *                    Changed the place where duplicate keys reports are supressed. Used to be in the key rutine now in the report routine
- * C006 - 08-Aug-24 - bug fix - After logical button was pressed, all buttons were being sent in state 4. Now corrected. 
+ * C006 - 08-Aug-24 - bug fix - After logical button was pressed, all buttons were being sent in state 4. Now corrected.
  * C007 - 07-Aug-25 - Adding two more pseudo buttons. Achieved by pressing front button at the same time as one of the side buttons.
  *                    These give TAB/Rotate lock (Left and fromt button) and Fit to screen (Right and front button) by default
  * C008 - 09-Aug-25 - Remove Speed adjustment left over from TT code - This can be controlled through 3DConections configuration menu.
  * C009 - 12-Aug-25 - Changed centre button to cycle through three views if enabled with cycleButton being true.
  ************************************************/
- 
-// Include inbuilt Arduino HID library by NicoHood: https://github.com/NicoHood/HID 
+
+// Include inbuilt Arduino HID library by NicoHood: https://github.com/NicoHood/HID
 #include "HID.h"
+
+// *JC - Include I2C and MPU-6050 libraries
+#include <Wire.h>
+#include "MPU6050.h"
 
 // Debugging
 // 0: Debugging off. Set to this once everything is working.
@@ -47,6 +51,19 @@
 // 5: Output debug 3 and 4 side by side for direct cause and effect reference. *JC ADC reference 2.56v
 // 6: *JC Output debug info for pseudo key state machine. ( two keys pressed at once to simulate another key press)
 int debug = 5;
+<<<<<<< HEAD
+
+// *JC - MPU-6050 variables for gyroscope fusion
+MPU6050 mpu;
+bool mpuAvailable = false;            // true only if sensor responds on I2C
+float gyro_offset[3] = {0, 0, 0};     // Gyro calibration offset (°/s)
+float gyro_integrated[3] = {0, 0, 0}; // Fused rotation cache for debug/telemetry
+unsigned long last_mpu_time = 0;      // For delta_time calculation
+const float GYRO_ALPHA = 0.97;        // Complementary filter weight (gyro trust)
+const float GYRO_250_SCALE = 131.0;   // Scale factor for ±250°/s range
+const float GYRO_DPS_TO_CMD = 6.0;    // Convert gyro °/s to HID command scale
+=======
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
 
 // Choose between 3DConnexion default movement or Teaching Tech's
 // With 3DConnexion you push the joystick away from you to zoom out and towards you to zoom in.
@@ -54,7 +71,11 @@ int debug = 5;
 // With the Teaching Tech default, these two axis are swapped so that pulling up or pushing down the knob controls zoom
 // and pushing away or pulling it towards you controls up and down. I prefer this.
 // set to true for 3DConnection movement.
+<<<<<<< HEAD
+bool movement3DC = false;
+=======
 bool movement3DC  = true;
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
 
 // switch between two modes of operation. The original mapping of buttons including pushing two at once or an alternative mapping where
 // the front button pretends to be three different buttons mapping to three views.
@@ -65,9 +86,9 @@ const uint8_t buttonDelay = 20; // 20ms wait time for second button to be presse
 // Direction
 // Modify the direction of translation/rotation depending on preference. This can also be done per application in the 3DConnexion software.
 // Switch between true/false as desired.
-bool invX = false; // pan left/right
-bool invY = false; // Zoom in/out or pan up/down // C003 *JC - 3DC default movement or TT default
-bool invZ = true; // pan up/down or zoom in/out // C003 *JC - 3DC default movement or TT default
+bool invX = false;  // pan left/right
+bool invY = false;  // Zoom in/out or pan up/down // C003 *JC - 3DC default movement or TT default
+bool invZ = true;   // pan up/down or zoom in/out // C003 *JC - 3DC default movement or TT default
 bool invRX = false; // Rotate around X axis (tilt front/back)
 bool invRY = false; // Rotate around Y axis (tilt left/right)
 bool invRZ = false; // Rotate around Z axis (twist left/right)
@@ -75,7 +96,6 @@ bool invRZ = false; // Rotate around Z axis (twist left/right)
 // Speed
 // Modify to change sensitibity/speed. Default and maximum 100. Works like a percentage ie. 50 is half as fast as default. This can also be done per application in the 3DConnexion software.
 // int16_t speed = 80; C008 - remove this as it can be controlled through 3dConnection software
-
 
 // Default Assembly when looking from above: *JC modified for Hall Effect Sensors (HES)
 //      7 6          Y+
@@ -85,76 +105,320 @@ bool invRZ = false; // Rotate around Z axis (twist left/right)
 //      0 1          Y-
 //
 // Wiring. Matches the first eight analogue pins of the Arduino Pro Micro (atmega32u4)
-int PINLIST[8] = { // The positions of the reads *JC comments indicate which Hall Effect sensor is connected
-  A0, // HES 6 o'clock left
-  A1, // HES 6 o'clock right
-  A2, // HES 3 o'clock near
-  A3, // HES 3 o'clock far
-  A6, // HES 12 o'clock right
-  A7, // HES 12 o'clock left
-  A8, // HES 9 o'clock far
-  A9  // HES 9 o'clock near
+int PINLIST[8] = {
+    // The positions of the reads *JC comments indicate which Hall Effect sensor is connected
+    A0, // HES 6 o'clock left
+    A1, // HES 6 o'clock right
+    A2, // HES 3 o'clock near
+    A3, // HES 3 o'clock far
+    A6, // HES 12 o'clock right
+    A7, // HES 12 o'clock left
+    A8, // HES 9 o'clock far
+    A9  // HES 9 o'clock near
 };
 
 // *JC added button list for digital inputs
 int BTNLIST[3] = { // Button pin list
-  0,
-  1,
-  2
-};
+    0,
+    1,
+    2};
 
-// Deadzone to filter out unintended movements. 
+// Deadzone to filter out unintended movements.
 // Increase if the mouse has small movements when it should be idle or the mouse is too senstive to subtle movements.
 // Note that the 3d Connections also has its own deadzone processes
-int DEADZONE = 40;
+int DEADZONE = 60;
 
+#include "HID.h"
+
+static const uint8_t _hidReportDescriptor[] PROGMEM = {
+    0x05, 0x01,       //  Usage Page (Generic Desktop)
+    0x09, 0x08,       //  0x08: Usage (Multi-Axis)
+    0xa1, 0x01,       //  Collection (Application)
+    0xa1, 0x00,       // Collection (Physical)
+    0x85, 0x01,       //  Report ID
+    0x16, 0x00, 0x80, // logical minimum (-500)
+    0x26, 0xff, 0x7f, // logical maximum (500)
+    0x36, 0x00, 0x80, // Physical Minimum (-32768)
+    0x46, 0xff, 0x7f, // Physical Maximum (32767)
+    0x09, 0x30,       //    Usage (X)
+    0x09, 0x31,       //    Usage (Y)
+    0x09, 0x32,       //    Usage (Z)
+    0x75, 0x10,       //    Report Size (16)
+    0x95, 0x03,       //    Report Count (3)
+    0x81, 0x02,       //    Input (variable,absolute)
+    0xC0,             //  End Collection
+    0xa1, 0x00,       // Collection (Physical)
+    0x85, 0x02,       //  Report ID
+    0x16, 0x00, 0x80, // logical minimum (-500)
+    0x26, 0xff, 0x7f, // logical maximum (500)
+    0x36, 0x00, 0x80, // Physical Minimum (-32768)
+    0x46, 0xff, 0x7f, // Physical Maximum (32767)
+    0x09, 0x33,       //    Usage (RX)
+    0x09, 0x34,       //    Usage (RY)
+    0x09, 0x35,       //    Usage (RZ)
+    0x75, 0x10,       //    Report Size (16)
+    0x95, 0x03,       //    Report Count (3)
+    0x81, 0x02,       //    Input (variable,absolute)
+    0xC0,             //  End Collection
+
+    0xa1, 0x00, // Collection (Physical)
+    0x85, 0x03, //  Report ID
+    0x15, 0x00, //   Logical Minimum (0)
+    0x25, 0x01, //    Logical Maximum (1)
+    0x75, 0x01, //    Report Size (1)
+    0x95, 32,   //    Report Count (24)
+    0x05, 0x09, //    Usage Page (Button)
+    0x19, 1,    //    Usage Minimum (Button #1)
+    0x29, 32,   //    Usage Maximum (Button #24)
+    0x81, 0x02, //    Input (variable,absolute)
+    0xC0,
+    0xC0};
+
+#define DOF 6
+#define TX 0 // translation X
+#define TY 1 // translation Y
+#define TZ 2 // translation Z
+#define RX 3 // rotation X
+#define RY 4 // rotation Y
+#define RZ 5 // rotation Z
+
+/// hardware
+#define DEAD_THRESH 2  // Deazone for ignoring small movement
+#define SPEED_PARAM 40 // larger is slower
+
+// ports of analog input for joysticks
+int port[DOF] = {A0, A2, A6, A1, A3, A7};
+
+// conversion matrix from sensor input to rigid motion
+int coeff[DOF][DOF] = {
+    {0, 0, 0, -20, -20, 40}, // TX
+    {0, 0, 0, -17, 17, 0},   // TY
+    {-3, -3, -3, 0, 0, 0},   // TZ
+    {-6, 6, 0, 0, 0, 0},     // RY
+    {3, 3, -6, 0, 0, 0},     // RX
+    {0, 0, 0, 2, 2, 2},      // RZ
+};
+
+#define abs(x) ((x) < 0 ? (-x) : (x))
+
+int origin[DOF]; // initial sensor values
+
+// *JC - MPU-6050 Functions
+
+// Initialize I2C and MPU-6050 sensor
+void initMPU()
+{
+  Wire.begin();
+  mpu.initialize();
+  delay(50);
+
+  mpuAvailable = mpu.testConnection();
+  if (!mpuAvailable)
+  {
+    if (debug >= 4)
+    {
+      Serial.println("MPU-6050 not detected. Running Hall-only mode.");
+    }
+    return;
+  }
+
+  // Configure gyroscope range (±250°/s) and accelerometer (±2g)
+  mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
+  mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+
+  if (debug >= 4)
+  {
+    Serial.println("MPU-6050 initialized");
+  }
+}
+
+// Calibrate gyroscope by averaging 100 readings at rest
+void calibrateGyro()
+{
+  if (!mpuAvailable)
+  {
+    return;
+  }
+
+  int16_t gx, gy, gz;
+  float sum[3] = {0, 0, 0};
+  const int CALIB_SAMPLES = 100;
+
+  if (debug >= 4)
+  {
+    Serial.println("Starting gyro calibration (hold still for 2 seconds)...");
+  }
+
+  for (int i = 0; i < CALIB_SAMPLES; i++)
+  {
+    mpu.getRotation(&gx, &gy, &gz);
+    sum[0] += gx;
+    sum[1] += gy;
+    sum[2] += gz;
+    delay(20);
+  }
+
+  gyro_offset[0] = sum[0] / (float)CALIB_SAMPLES;
+  gyro_offset[1] = sum[1] / (float)CALIB_SAMPLES;
+  gyro_offset[2] = sum[2] / (float)CALIB_SAMPLES;
+
+  if (debug >= 4)
+  {
+    Serial.print("Gyro calibration complete. Offsets: ");
+    Serial.print(gyro_offset[0]);
+    Serial.print(", ");
+    Serial.print(gyro_offset[1]);
+    Serial.print(", ");
+    Serial.println(gyro_offset[2]);
+  }
+}
+
+// Read gyroscope data and convert to degrees per second
+void readMPU(float *gx_dps, float *gy_dps, float *gz_dps)
+{
+  if (!mpuAvailable)
+  {
+    *gx_dps = 0.0;
+    *gy_dps = 0.0;
+    *gz_dps = 0.0;
+    return;
+  }
+
+  int16_t gx_raw, gy_raw, gz_raw;
+  mpu.getRotation(&gx_raw, &gy_raw, &gz_raw);
+
+  // Convert raw values to degrees per second and apply offset
+  // LSB sensitivity: 1 LSB = 1/131 °/s at ±250°/s range
+  *gx_dps = ((float)gx_raw - gyro_offset[0]) / GYRO_250_SCALE;
+  *gy_dps = ((float)gy_raw - gyro_offset[1]) / GYRO_250_SCALE;
+  *gz_dps = ((float)gz_raw - gyro_offset[2]) / GYRO_250_SCALE;
+}
+
+// Integrate gyroscope readings over time to get accumulated angle
+// Returns the fused rotation value combining gyro and Hall sensor data
+int16_t integrateAndFuseGyro(float gyro_dps, int16_t hall_rotation, int axis, float dt_sec)
+{
+  if (!mpuAvailable)
+  {
+    gyro_integrated[axis] = hall_rotation;
+    return hall_rotation;
+  }
+
+  if (dt_sec <= 0.0 || dt_sec > 0.1)
+  {
+    dt_sec = 0.01;
+  }
+
+  // Convert gyro rate to command space and fuse with Hall rotation command.
+  float gyro_rotation_cmd = gyro_dps * GYRO_DPS_TO_CMD;
+  float fused = GYRO_ALPHA * gyro_rotation_cmd + (1.0 - GYRO_ALPHA) * (float)hall_rotation;
+  gyro_integrated[axis] = fused;
+
+  // Clamp to ±500 range (match HID output range)
+  if (fused > 500.0)
+    fused = 500.0;
+  if (fused < -500.0)
+    fused = -500.0;
+
+  return (int16_t)fused;
+}
+
+void send_command_alt(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int16_t z)
+{
+  uint8_t trans[6] = {x & 0xFF, x >> 8, y & 0xFF, y >> 8, z & 0xFF, z >> 8};
+  HID().SendReport(1, trans, 6);
+  uint8_t rot[6] = {rx & 0xFF, rx >> 8, ry & 0xFF, ry >> 8, rz & 0xFF, rz >> 8};
+  HID().SendReport(2, rot, 6);
+}
+
+// void loop() {
+//   int sv[DOF]; // sensor value
+//   int mv[DOF]; // motion vector
+
+//   // read sensor value and subtract original position
+//   for(int i = 0; i < DOF; i++) {
+//     sv[i] = analogRead(port[i]) - origin[i];
+//   }
+
+//   // calculate the motion of the "mushroom" knob
+//   for(int i = 0; i < DOF; i++) {
+//     mv[i] = 0;
+//     for(int j = 0; j < DOF; j++) {
+//       mv[i] += coeff[i][j] * sv[j];
+//     }
+
+//     mv[i] /= SPEED_PARAM;
+
+//     if((mv[i] > -DEAD_THRESH) && (mv[i] < DEAD_THRESH)){
+//       mv[i] = 0;
+//     }
+
+//     else if(mv[i] > 500) {
+//       mv[i] = 500;
+//     }
+//     else if(mv[i] < -500) {
+//       mv[i] = -500;
+//     }
+//   }
+
+//   bool Movement = false;
+//   for(int i = 0; i < DOF; i++) {
+//     if(mv[i] != 0){
+//       Movement = true;
+//     }
+//   }
+
+//   if(Movement = true){
+//     send_command(mv[4], -mv[3], -mv[5], mv[0], mv[1], mv[2]);
+//   }
+// }
 
 // This portion sets up the communication with the 3DConnexion software. The communication protocol is created here.
-// hidReportDescriptor webpage can be found here: https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/ 
-static const uint8_t _hidReportDescriptor[] PROGMEM = {
-  0x05, 0x01,           //  Usage Page (Generic Desktop)
-  0x09, 0x08,           //  0x08: Usage (Multi-Axis)
-  0xa1, 0x01,           //  Collection (Application)
-  0xa1, 0x00,           // Collection (Physical)
-  0x85, 0x01,           //  Report ID
-  0x16, 0x00, 0x80,     //logical minimum (-500)
-  0x26, 0xff, 0x7f,     //logical maximum (500)
-  0x36, 0x00, 0x80,     //Physical Minimum (-32768)
-  0x46, 0xff, 0x7f,     //Physical Maximum (32767)
-  0x09, 0x30,           //    Usage (X)
-  0x09, 0x31,           //    Usage (Y)
-  0x09, 0x32,           //    Usage (Z)
-  0x75, 0x10,           //    Report Size (16)
-  0x95, 0x03,           //    Report Count (3)
-  0x81, 0x02,           //    Input (variable,absolute)
-  0xC0,                 //  End Collection
-  0xa1, 0x00,           // Collection (Physical)
-  0x85, 0x02,           //  Report ID
-  0x16, 0x00, 0x80,     //logical minimum (-500)
-  0x26, 0xff, 0x7f,     //logical maximum (500)
-  0x36, 0x00, 0x80,     //Physical Minimum (-32768)
-  0x46, 0xff, 0x7f,     //Physical Maximum (32767)
-  0x09, 0x33,           //    Usage (RX)
-  0x09, 0x34,           //    Usage (RY)
-  0x09, 0x35,           //    Usage (RZ)
-  0x75, 0x10,           //    Report Size (16)
-  0x95, 0x03,           //    Report Count (3)
-  0x81, 0x02,           //    Input (variable,absolute)
-  0xC0,                 //  End Collection
- 
-  0xa1, 0x00,           // Collection (Physical)
-  0x85, 0x03,           //  Report ID
-  0x15, 0x00,           //   Logical Minimum (0)
-  0x25, 0x01,           //    Logical Maximum (1)
-  0x75, 0x01,           //    Report Size (1)
-  0x95, 32,             //    Report Count (24) // *JC - I dont undwerstand what the comment says 24 but gives a value of 32
-  0x05, 0x09,           //    Usage Page (Button)
-  0x19, 1,              //    Usage Minimum (Button #1)
-  0x29, 32,             //    Usage Maximum (Button #24) // *JC - same comment as above
-  0x81, 0x02,           //    Input (variable,absolute)
-  0xC0,
-  0xC0
-};
+// hidReportDescriptor webpage can be found here: https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/
+// static const uint8_t _hidReportDescriptor[] PROGMEM = {
+//   0x05, 0x01,           //  Usage Page (Generic Desktop)
+//   0x09, 0x08,           //  0x08: Usage (Multi-Axis)
+//   0xa1, 0x01,           //  Collection (Application)
+//   0xa1, 0x00,           // Collection (Physical)
+//   0x85, 0x01,           //  Report ID
+//   0x16, 0x00, 0x80,     //logical minimum (-500)
+//   0x26, 0xff, 0x7f,     //logical maximum (500)
+//   0x36, 0x00, 0x80,     //Physical Minimum (-32768)
+//   0x46, 0xff, 0x7f,     //Physical Maximum (32767)
+//   0x09, 0x30,           //    Usage (X)
+//   0x09, 0x31,           //    Usage (Y)
+//   0x09, 0x32,           //    Usage (Z)
+//   0x75, 0x10,           //    Report Size (16)
+//   0x95, 0x03,           //    Report Count (3)
+//   0x81, 0x02,           //    Input (variable,absolute)
+//   0xC0,                 //  End Collection
+//   0xa1, 0x00,           // Collection (Physical)
+//   0x85, 0x02,           //  Report ID
+//   0x16, 0x00, 0x80,     //logical minimum (-500)
+//   0x26, 0xff, 0x7f,     //logical maximum (500)
+//   0x36, 0x00, 0x80,     //Physical Minimum (-32768)
+//   0x46, 0xff, 0x7f,     //Physical Maximum (32767)
+//   0x09, 0x33,           //    Usage (RX)
+//   0x09, 0x34,           //    Usage (RY)
+//   0x09, 0x35,           //    Usage (RZ)
+//   0x75, 0x10,           //    Report Size (16)
+//   0x95, 0x03,           //    Report Count (3)
+//   0x81, 0x02,           //    Input (variable,absolute)
+//   0xC0,                 //  End Collection
+
+//   0xa1, 0x00,           // Collection (Physical)
+//   0x85, 0x03,           //  Report ID
+//   0x15, 0x00,           //   Logical Minimum (0)
+//   0x25, 0x01,           //    Logical Maximum (1)
+//   0x75, 0x01,           //    Report Size (1)
+//   0x95, 32,             //    Report Count (24) // *JC - I dont undwerstand what the comment says 24 but gives a value of 32
+//   0x05, 0x09,           //    Usage Page (Button)
+//   0x19, 1,              //    Usage Minimum (Button #1)
+//   0x29, 32,             //    Usage Maximum (Button #24) // *JC - same comment as above
+//   0x81, 0x02,           //    Input (variable,absolute)
+//   0xC0,
+//   0xC0
+// };
 
 // Sensors are matched to pin order.
 // *JC - Note HES0 and BTN0 are not the same pin. HSE0 is Analog input 0 and BTN0 is digital input 0
@@ -174,8 +438,10 @@ static const uint8_t _hidReportDescriptor[] PROGMEM = {
 int centerPoints[8];
 
 // Function to read and store analogue voltages for each joystick axis.
-void readAllFromSensors(int *rawReads){
-  for(int i=0; i<8; i++){
+void readAllFromSensors(int *rawReads)
+{
+  for (int i = 0; i < 8; i++)
+  {
     rawReads[i] = analogRead(PINLIST[i]);
   }
 }
@@ -194,9 +460,11 @@ unsigned long keyTimeNew, keyTimeOld = 0;
 uint8_t keyState = 0, keyPressed = 0; // C004 - *JC - keyPresed added to keep track of last key pressed (in state machine).
 // uint8_t oldButtonValues[6] = {0,0,0,0}; no longer used with state machine
 
-void readAllFromButtons(uint8_t *buttonValues){
-  for(int i=1; i<4; i++){ // read real button values
-    buttonValues[i] = !digitalRead(BTNLIST[i-1]);
+void readAllFromButtons(uint8_t *buttonValues)
+{
+  for (int i = 1; i < 4; i++)
+  { // read real button values
+    buttonValues[i] = !digitalRead(BTNLIST[i - 1]);
   }
 
   // C002 - *JC changed logic for handling pseudo/logical switch (two buttons pressed at once gives different function)
@@ -204,92 +472,118 @@ void readAllFromButtons(uint8_t *buttonValues){
   // C009 - *JC if CycleButton is set to true then middle button (2) will set pseudo buttons 6, 7 and 8
   buttonValues[0] = buttonValues[4] = buttonValues[5] = buttonValues[6] = buttonValues[7] = buttonValues[8] = false;
   keyTimeNew = millis();
-  switch(keyState) {
-    case 0: // no button pressed so far
-     if (buttonValues[1] || buttonValues[3] || buttonValues[2]) { // C007 - *JC - added buttonValues[2]
-       if (debug == 6) Serial.println("keyState 0 - button pressed move to keyState 1");
-       keyState = 1;
-       keyTimeOld = keyTimeNew;
-       buttonValues[1] = buttonValues[3] = buttonValues[2] = false; // don't send button values yet. C007 - *JC added ButtonValues 2 to the list
-     }
-     break;
+  switch (keyState)
+  {
+  case 0: // no button pressed so far
+    if (buttonValues[1] || buttonValues[3] || buttonValues[2])
+    { // C007 - *JC - added buttonValues[2]
+      if (debug == 6)
+        Serial.println("keyState 0 - button pressed move to keyState 1");
+      keyState = 1;
+      keyTimeOld = keyTimeNew;
+      buttonValues[1] = buttonValues[3] = buttonValues[2] = false; // don't send button values yet. C007 - *JC added ButtonValues 2 to the list
+    }
+    break;
 
-     case 1: // button 1 or 3 pressed - what has happened with the elapsed time
-     if (debug == 6) Serial.println("keyState 1 - one button pressed");
-     if (keyTimeNew - keyTimeOld > buttonDelay) { // C007  - changed the waiting time from 15 to 20 as 15 seemed to short for ackward double button presses C009 changed number to a constant defined elsewhere
-       keyState = 3; // second button not pressed
-     } else if (buttonValues[1] && buttonValues[3]) {
-       keyState = 2; // second button pressed pseudo button 1
-     } else if (buttonValues[1] && buttonValues[2]) { // start of C007 changes - this introduces 2 new states for the two new pseudo buttons
-       keyState = 5; // second button pressed pseudo button 2
-     } else if (buttonValues[2] && buttonValues[3]) {
-       keyState = 6; // second button pressed pseudo button 3
-     } // end of C007 changes
-    
-     buttonValues[1] = buttonValues[3] = buttonValues[2] = false; // don't send button values yet - C007 - *JC added buttonValues[2] to the list
-     break;
+  case 1: // button 1 or 3 pressed - what has happened with the elapsed time
+    if (debug == 6)
+      Serial.println("keyState 1 - one button pressed");
+    if (keyTimeNew - keyTimeOld > buttonDelay)
+    {               // C007  - changed the waiting time from 15 to 20 as 15 seemed to short for ackward double button presses C009 changed number to a constant defined elsewhere
+      keyState = 3; // second button not pressed
+    }
+    else if (buttonValues[1] && buttonValues[3])
+    {
+      keyState = 2; // second button pressed pseudo button 1
+    }
+    else if (buttonValues[1] && buttonValues[2])
+    {               // start of C007 changes - this introduces 2 new states for the two new pseudo buttons
+      keyState = 5; // second button pressed pseudo button 2
+    }
+    else if (buttonValues[2] && buttonValues[3])
+    {
+      keyState = 6; // second button pressed pseudo button 3
+    } // end of C007 changes
 
-     case 2: // second button pressed - set logical button
-     if (debug == 6) Serial.println("keyState 2 - second button pressed - set logical button");
-     buttonValues[0] = true;
-     keyState = 4;
-     keyPressed = 0; // C004 - *JC - record button 0 pressed
-     buttonValues[1] = buttonValues[3] = false;
-     break;
+    buttonValues[1] = buttonValues[3] = buttonValues[2] = false; // don't send button values yet - C007 - *JC added buttonValues[2] to the list
+    break;
 
-     case 3: // second button not pressed, send the original button
-     if (debug == 6) Serial.println("keyState 3 - second button not pressed in time");
-     keyState = 4;
-     if (buttonValues[1]) { // C004 - *JC - record which button was pressed and will be reported
+  case 2: // second button pressed - set logical button
+    if (debug == 6)
+      Serial.println("keyState 2 - second button pressed - set logical button");
+    buttonValues[0] = true;
+    keyState = 4;
+    keyPressed = 0; // C004 - *JC - record button 0 pressed
+    buttonValues[1] = buttonValues[3] = false;
+    break;
+
+  case 3: // second button not pressed, send the original button
+    if (debug == 6)
+      Serial.println("keyState 3 - second button not pressed in time");
+    keyState = 4;
+    if (buttonValues[1])
+    { // C004 - *JC - record which button was pressed and will be reported
       keyPressed = 1;
-     } else if (buttonValues[2]) { // C007 - *JC - added extra button to possible two button presses
-     // C009 - *JC - if the flag cycleButton is set to true then button 2 will set one of three pseudo buttons
-     //              that will then be used to display one of three views on rotation
-       if (cycleButton)  { 
-         buttonValues[6+cycleInitialButton] = true;
-         keyPressed = 6+cycleInitialButton;
-         cycleInitialButton = (cycleInitialButton+1)%3;
-         if (debug == 6) {Serial.print("cycleInitialButton = "); Serial.println(keyPressed);}
-       } else {
-         keyPressed = 2;
-       }
-     } else {
+    }
+    else if (buttonValues[2])
+    { // C007 - *JC - added extra button to possible two button presses
+      // C009 - *JC - if the flag cycleButton is set to true then button 2 will set one of three pseudo buttons
+      //              that will then be used to display one of three views on rotation
+      if (cycleButton)
+      {
+        buttonValues[6 + cycleInitialButton] = true;
+        keyPressed = 6 + cycleInitialButton;
+        cycleInitialButton = (cycleInitialButton + 1) % 3;
+        if (debug == 6)
+        {
+          Serial.print("cycleInitialButton = ");
+          Serial.println(keyPressed);
+        }
+      }
+      else
+      {
+        keyPressed = 2;
+      }
+    }
+    else
+    {
       keyPressed = 3;
-     }
-     break;
+    }
+    break;
 
-     case 4: //wait until buttons released to reset state
-     //if (debug == 6) Serial.println("keyState 4 - wait for buttons to be released before resetting state");
+  case 4: // wait until buttons released to reset state
+    // if (debug == 6) Serial.println("keyState 4 - wait for buttons to be released before resetting state");
 
-     if (!buttonValues[1] && !buttonValues[3] && !buttonValues[2]) { // C007 - *JC added buttonValues[2]
-       keyState = 0;   
-     }
-     buttonValues[0] = buttonValues[1] = buttonValues[3] = buttonValues[2] = false; //C005 - *JC - bug fix. Was here before but was removed for the last release
-     buttonValues[keyPressed] = true; // C004 - *JC - keep the keys pressed.
+    if (!buttonValues[1] && !buttonValues[3] && !buttonValues[2])
+    { // C007 - *JC added buttonValues[2]
+      keyState = 0;
+    }
+    buttonValues[0] = buttonValues[1] = buttonValues[3] = buttonValues[2] = false; // C005 - *JC - bug fix. Was here before but was removed for the last release
+    buttonValues[keyPressed] = true;                                               // C004 - *JC - keep the keys pressed.
 
-     break;
+    break;
 
-     case 5: // C007 -*JC - second pseudo button
-     if (debug == 6) Serial.println("keyState 5 - second button pressed - set logical button");
-     buttonValues[4] = true;
-     keyState = 4;
-     keyPressed = 4; // C004 - *JC - record button 0 pressed
-     buttonValues[1] = buttonValues[2] = buttonValues[3] = false;
-     break;
+  case 5: // C007 -*JC - second pseudo button
+    if (debug == 6)
+      Serial.println("keyState 5 - second button pressed - set logical button");
+    buttonValues[4] = true;
+    keyState = 4;
+    keyPressed = 4; // C004 - *JC - record button 0 pressed
+    buttonValues[1] = buttonValues[2] = buttonValues[3] = false;
+    break;
 
-    case 6 :  // C007 - *JC - third pseudo button
-     if (debug == 6) Serial.println("keyState 6 - second button pressed - set logical button");
-     buttonValues[5] = true;
-     keyState = 4;
-     keyPressed = 5; // C004 - *JC - record button 0 pressed
-     buttonValues[1] = buttonValues[2] = buttonValues[3] = false;
-     break;
+  case 6: // C007 - *JC - third pseudo button
+    if (debug == 6)
+      Serial.println("keyState 6 - second button pressed - set logical button");
+    buttonValues[5] = true;
+    keyState = 4;
+    keyPressed = 5; // C004 - *JC - record button 0 pressed
+    buttonValues[1] = buttonValues[2] = buttonValues[3] = false;
+    break;
+  }
 
-}
-
-      
-/* C004 - *JC - move supression of sending multiple key reports to report sending routine. 
-// *JC - only send button value once 
+  /* C004 - *JC - move supression of sending multiple key reports to report sending routine.
+// *JC - only send button value once
   for (int i=0;i<4;i++) {
     if (buttonValues[i] == oldButtonValues[i]) {
       buttonValues[i]=0; // send only once
@@ -297,7 +591,7 @@ void readAllFromButtons(uint8_t *buttonValues){
       if (debug == 6) {
         Serial.print("Button "); Serial.print(i); Serial.print(" changed - Old Value ");Serial.print(oldButtonValues[i]); Serial.print(" New Value ");Serial.println(buttonValues[i]);
       }
-      oldButtonValues[i] = buttonValues[i];   
+      oldButtonValues[i] = buttonValues[i];
     }
    }
 */
@@ -314,40 +608,15 @@ void readAllFromButtons(uint8_t *buttonValues){
   */
 }
 
-void setup() {
-  // HID protocol is set.
-  static HIDSubDescriptor node(_hidReportDescriptor, sizeof(_hidReportDescriptor));
-  HID().AppendDescriptor(&node);
-  // Begin Seral for debugging
-  Serial.begin(250000);
-  delay(100);
-  // *JC - setup button pins for digitalRead
-  for(int i=0; i<3; i++){
-    pinMode(BTNLIST[i],INPUT_PULLUP);
-  }
-  //*JC - reduce ADC reference voltage from 5V to 2.56 if not using debug = 1
-  if (debug == 1) {
-    analogReference(DEFAULT);
-  } else {
-    analogReference(INTERNAL);
-  }
-
-  // Read idle/centre positions for Sensors.
-  // *JC - First read gives unpredictable values so do it twice
-  readAllFromSensors(centerPoints);
-  delay(1000);
-  readAllFromSensors(centerPoints);
-  readAllFromSensors(centerPoints);
-}
-
 uint8_t keyChange = 0; // C004 - *JC - variable to determine if new key report needs to be sent.
 // Function to send translation and rotation data to the 3DConnexion software using the HID protocol outlined earlier. Two sets of data are sent: translation and then rotation.
 // For each, a 16bit integer is split into two using bit shifting. The first is mangitude and the second is direction.
 // *JC - Added button report
-void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int16_t z, uint8_t *buttonValues) {
-  uint8_t trans[6] = { x & 0xFF, x >> 8, y & 0xFF, y >> 8, z & 0xFF, z >> 8 };
+void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int16_t z, uint8_t *buttonValues)
+{
+  uint8_t trans[6] = {x & 0xFF, x >> 8, y & 0xFF, y >> 8, z & 0xFF, z >> 8};
   HID().SendReport(1, trans, 6);
-  uint8_t rot[6] = { rx & 0xFF, rx >> 8, ry & 0xFF, ry >> 8, rz & 0xFF, rz >> 8 };
+  uint8_t rot[6] = {rx & 0xFF, rx >> 8, ry & 0xFF, ry >> 8, rz & 0xFF, rz >> 8};
   HID().SendReport(2, rot, 6);
   // *JC - Button Report
   // these are the button functions for first byte in Fusion 360. For other functions see the GitHub repositry
@@ -359,22 +628,77 @@ void send_command(int16_t rx, int16_t ry, int16_t rz, int16_t x, int16_t y, int1
   //  bit 5 - front view File
   //  bit 6 - no function?
   //  bit 7 - no function?
-  uint8_t btn[4] ={32*buttonValues[3]+16*buttonValues[2]+4*buttonValues[1]+buttonValues[0]+2*buttonValues[5],0,0,4*buttonValues[4]}; // C007 added 2nd Pseudo button as Fit to Screen
-  if (cycleButton) { // C009 use pseudo buttons to select views - button 2 controls which view is selected.
-    btn[0] = 32*buttonValues[6]+16*buttonValues[7]+4*buttonValues[8]+buttonValues[0]+2*buttonValues[1];
-    btn[1] = buttonValues[4]+16*buttonValues[5];
-    btn[3] = 4*buttonValues[3];
+  uint8_t btn[4] = {32 * buttonValues[3] + 16 * buttonValues[2] + 4 * buttonValues[1] + buttonValues[0] + 2 * buttonValues[5], 0, 0, 4 * buttonValues[4]}; // C007 added 2nd Pseudo button as Fit to Screen
+  if (cycleButton)
+  { // C009 use pseudo buttons to select views - button 2 controls which view is selected.
+    btn[0] = 32 * buttonValues[6] + 16 * buttonValues[7] + 4 * buttonValues[8] + buttonValues[0] + 2 * buttonValues[1];
+    btn[1] = buttonValues[4] + 16 * buttonValues[5];
+    btn[3] = 4 * buttonValues[3];
   }
-    if (buttonValues[0]+2*buttonValues[1]+4*buttonValues[2]+8*buttonValues[3]+16*buttonValues[4]+32*buttonValues[5]+64*buttonValues[6]+128*buttonValues[7]+256*buttonValues[8]!=keyChange) { // C004 - *JC - changed operation *JC - only send report if a button is pressed C007 added new pseudo buttons to check
-    if (debug == 6) {Serial.print("btn[0] = ");Serial.print(btn[0]);Serial.print(" btn[1] = ");Serial.print(btn[1]);Serial.print(" btn[2] = ");Serial.print(btn[2]);Serial.print(" btn[3] = ");Serial.println(btn[3]); }
-    HID().SendReport(3,btn,4);
-    keyChange = buttonValues[0]+2*buttonValues[1]+4*buttonValues[2]+8*buttonValues[3]+16*buttonValues[4]+32*buttonValues[5]+64*buttonValues[6]+128*buttonValues[7]+256*buttonValues[8]; // C004 - *JC - record keys pressed for next time through the loop C007 added new pseudo buttons to keychange value
-    if (debug == 6) {Serial.print("keyChange = "); Serial.println(keyChange);} // C005 - *JC - to help debug key press issues
-
+  if (buttonValues[0] + 2 * buttonValues[1] + 4 * buttonValues[2] + 8 * buttonValues[3] + 16 * buttonValues[4] + 32 * buttonValues[5] + 64 * buttonValues[6] + 128 * buttonValues[7] + 256 * buttonValues[8] != keyChange)
+  { // C004 - *JC - changed operation *JC - only send report if a button is pressed C007 added new pseudo buttons to check
+    if (debug == 6)
+    {
+      Serial.print("btn[0] = ");
+      Serial.print(btn[0]);
+      Serial.print(" btn[1] = ");
+      Serial.print(btn[1]);
+      Serial.print(" btn[2] = ");
+      Serial.print(btn[2]);
+      Serial.print(" btn[3] = ");
+      Serial.println(btn[3]);
+    }
+    HID().SendReport(3, btn, 4);
+    keyChange = buttonValues[0] + 2 * buttonValues[1] + 4 * buttonValues[2] + 8 * buttonValues[3] + 16 * buttonValues[4] + 32 * buttonValues[5] + 64 * buttonValues[6] + 128 * buttonValues[7] + 256 * buttonValues[8]; // C004 - *JC - record keys pressed for next time through the loop C007 added new pseudo buttons to keychange value
+    if (debug == 6)
+    {
+      Serial.print("keyChange = ");
+      Serial.println(keyChange);
+    } // C005 - *JC - to help debug key press issues
   }
 }
 
-void loop() {
+void setup()
+{
+  // HID protocol is set.
+  static HIDSubDescriptor node(_hidReportDescriptor, sizeof(_hidReportDescriptor));
+  HID().AppendDescriptor(&node);
+  // Begin Seral for debugging
+  Serial.begin(250000);
+  delay(100);
+
+  // *JC - Initialize MPU-6050 and calibrate gyroscope
+  initMPU();
+  if (mpuAvailable)
+  {
+    calibrateGyro();
+    last_mpu_time = micros(); // Initialize timestamp for delta_time calculation
+  }
+
+  // *JC - setup button pins for digitalRead
+  for (int i = 0; i < 3; i++)
+  {
+    pinMode(BTNLIST[i], INPUT_PULLUP);
+  }
+  //*JC - reduce ADC reference voltage from 5V to 2.56 if not using debug = 1
+  if (debug == 1)
+  {
+    analogReference(DEFAULT);
+  }
+  else
+  {
+    analogReference(INTERNAL);
+  }
+
+  // Read idle/centre positions for Sensors.
+  // *JC - First read gives unpredictable values so do it twice
+  readAllFromSensors(centerPoints);
+  delay(1000);
+  readAllFromSensors(centerPoints);
+  readAllFromSensors(centerPoints);
+}
+void loop()
+{
   int rawReads[8], centered[8];
   uint8_t buttonReads[9]; // C007 - *JC added two more values for two extra pseudo buttons C009 added another 3 pseudo switches to cycle views when button 2 (front) pressed
 
@@ -383,106 +707,267 @@ void loop() {
   // button values true or false
   readAllFromButtons(buttonReads);
 
+  // Calculate one delta time per loop so all rotation axes use consistent timing.
+  unsigned long current_mpu_time = micros();
+  float dt_sec = 0.01;
+  if (last_mpu_time != 0)
+  {
+    dt_sec = (current_mpu_time - last_mpu_time) / 1000000.0;
+    if (dt_sec <= 0.0 || dt_sec > 0.1)
+    {
+      dt_sec = 0.01;
+    }
+  }
+  last_mpu_time = current_mpu_time;
+
+  // *JC - Read MPU-6050 gyroscope data
+  float gx_dps, gy_dps, gz_dps;
+  readMPU(&gx_dps, &gy_dps, &gz_dps);
+
   // Report back 0-1023 raw ADC 10-bit values if enabled
-  if(debug == 1){ 
-    Serial.print("HES0:"); Serial.print(rawReads[0]); Serial.print(",");
-    Serial.print("HES1:"); Serial.print(rawReads[1]); Serial.print(",");
-    Serial.print("HES2:"); Serial.print(rawReads[2]); Serial.print(",");
-    Serial.print("HES3:"); Serial.print(rawReads[3]); Serial.print(",");
-    Serial.print("HES6:"); Serial.print(rawReads[4]); Serial.print(",");
-    Serial.print("HES7:"); Serial.print(rawReads[5]); Serial.print(",");
-    Serial.print("HES8:"); Serial.print(rawReads[6]); Serial.print(",");
-    Serial.print("HES9:"); Serial.println(rawReads[7]);
+  if (debug == 1)
+  {
+    Serial.print("HES0:");
+    Serial.print(rawReads[0]);
+    Serial.print(",");
+    Serial.print("HES1:");
+    Serial.print(rawReads[1]);
+    Serial.print(",");
+    Serial.print("HES2:");
+    Serial.print(rawReads[2]);
+    Serial.print(",");
+    Serial.print("HES3:");
+    Serial.print(rawReads[3]);
+    Serial.print(",");
+    Serial.print("HES6:");
+    Serial.print(rawReads[4]);
+    Serial.print(",");
+    Serial.print("HES7:");
+    Serial.print(rawReads[5]);
+    Serial.print(",");
+    Serial.print("HES8:");
+    Serial.print(rawReads[6]);
+    Serial.print(",");
+    Serial.print("HES9:");
+    Serial.println(rawReads[7]);
   }
 
   // Subtract centre position from measured position to determine movement.
   // *JC - As we are going negative with the readings, we make them positive
   // by subtraction them from the recorded centerPoints rather than the other was around.
-  // C0004 - changed back to the original TT version to match the code from AndunHH 
-  for(int i=0; i<8; i++) centered[i] = centerPoints[i]-rawReads[i]; // 
+  // C0004 - changed back to the original TT version to match the code from AndunHH
+  for (int i = 0; i < 8; i++)
+    centered[i] = centerPoints[i] - rawReads[i]; //
   // Report centered Sensor values if enabled. Values should be approx -256 to +256, jitter around 0 at idle.
-  if(debug == 2){
-    Serial.print("HES0:"); Serial.print(centered[0]); Serial.print(",");
-    Serial.print("HES1:"); Serial.print(centered[1]); Serial.print(",");
-    Serial.print("HES2:"); Serial.print(centered[2]); Serial.print(",");
-    Serial.print("HES3:"); Serial.print(centered[3]); Serial.print(",");
-    Serial.print("HES6:"); Serial.print(centered[4]); Serial.print(",");
-    Serial.print("HES7:"); Serial.print(centered[5]); Serial.print(",");
-    Serial.print("HES8:"); Serial.print(centered[6]); Serial.print(",");
-    Serial.print("HES9:"); Serial.println(centered[7]);
+  if (debug == 2)
+  {
+    Serial.print("HES0:");
+    Serial.print(centered[0]);
+    Serial.print(",");
+    Serial.print("HES1:");
+    Serial.print(centered[1]);
+    Serial.print(",");
+    Serial.print("HES2:");
+    Serial.print(centered[2]);
+    Serial.print(",");
+    Serial.print("HES3:");
+    Serial.print(centered[3]);
+    Serial.print(",");
+    Serial.print("HES6:");
+    Serial.print(centered[4]);
+    Serial.print(",");
+    Serial.print("HES7:");
+    Serial.print(centered[5]);
+    Serial.print(",");
+    Serial.print("HES8:");
+    Serial.print(centered[6]);
+    Serial.print(",");
+    Serial.print("HES9:");
+    Serial.println(centered[7]);
   }
   // Filter movement values. Set to zero if movement is below deadzone threshold.
   // *JC - Changed operation so there isn't a sudden jump when the value first falls outside deadzone
-  for(int i=0; i<8; i++){
-    if(centered[i]<DEADZONE && centered[i]>-DEADZONE) {
+  for (int i = 0; i < 8; i++)
+  {
+    if (centered[i] < DEADZONE && centered[i] > -DEADZONE)
+    {
       centered[i] = 0;
-    } else {
+    }
+    else
+    {
       int sgn = centered[i] / abs(centered[i]);
-      centered[i] = sgn*(abs(centered[i])-DEADZONE);
+      centered[i] = sgn * (abs(centered[i]) - DEADZONE);
     }
   }
   // Report centered Sensor values. Filtered for deadzone. Approx -500 to +500, locked to zero at idle
-  if(debug == 3){
-    Serial.print("HES0:"); Serial.print(centered[0]); Serial.print(",");
-    Serial.print("HES1:"); Serial.print(centered[1]); Serial.print(",");
-    Serial.print("HES2:"); Serial.print(centered[2]); Serial.print(",");
-    Serial.print("HES3:"); Serial.print(centered[3]); Serial.print(",");
-    Serial.print("HES6:"); Serial.print(centered[4]); Serial.print(",");
-    Serial.print("HES7:"); Serial.print(centered[5]); Serial.print(",");
-    Serial.print("HES8:"); Serial.print(centered[6]); Serial.print(",");
-    Serial.print("HES9:"); Serial.print(centered[7]); Serial.print(",");
-    Serial.print("But0:"); Serial.print(buttonReads[0]); Serial.print(",");
-    Serial.print("But1:"); Serial.print(buttonReads[1]); Serial.print(",");
-    Serial.print("But2:"); Serial.print(buttonReads[2]); Serial.print(",");
-    Serial.print("But3:"); Serial.println(buttonReads[3]);  
+  if (debug == 3)
+  {
+    Serial.print("HES0:");
+    Serial.print(centered[0]);
+    Serial.print(",");
+    Serial.print("HES1:");
+    Serial.print(centered[1]);
+    Serial.print(",");
+    Serial.print("HES2:");
+    Serial.print(centered[2]);
+    Serial.print(",");
+    Serial.print("HES3:");
+    Serial.print(centered[3]);
+    Serial.print(",");
+    Serial.print("HES6:");
+    Serial.print(centered[4]);
+    Serial.print(",");
+    Serial.print("HES7:");
+    Serial.print(centered[5]);
+    Serial.print(",");
+    Serial.print("HES8:");
+    Serial.print(centered[6]);
+    Serial.print(",");
+    Serial.print("HES9:");
+    Serial.print(centered[7]);
+    Serial.print(",");
+    Serial.print("But0:");
+    Serial.print(buttonReads[0]);
+    Serial.print(",");
+    Serial.print("But1:");
+    Serial.print(buttonReads[1]);
+    Serial.print(",");
+    Serial.print("But2:");
+    Serial.print(buttonReads[2]);
+    Serial.print(",");
+    Serial.print("But3:");
+    Serial.println(buttonReads[3]);
   }
 
   // Doing all through arithmetic contribution by fdmakara
   // Integer has been changed to 16 bit int16_t to match what the HID protocol expects.
   int16_t transX, transY, transZ, rotX, rotY, rotZ; // Declare movement variables at 16 bit integers
   // Original fdmakara calculations
-  //transX = (-centered[AX] +centered[CX])/1;
-  //transY = (-centered[BX] +centered[DX])/1;
-  //transZ = (-centered[AY] -centered[BY] -centered[CY] -centered[DY])/2;
-  //rotX = (-centered[AY] +centered[CY])/2;
-  //rotY = (+centered[BY] -centered[DY])/2;
-  //rotZ = (+centered[AX] +centered[BX] +centered[CX] +centered[DX])/4;
-  
-  // *JC - Replaced Joystick calculations with ones for the Hall Effect Sensors
-  transX = (centered[HES1]-centered[HES0]+centered[HES6]-centered[HES7])/2;  
-  transY = (centered[HES2]-centered[HES3]+centered[HES9]-centered[HES8])/2;  
-  transZ = (centered[HES0]+centered[HES1]+centered[HES2]+centered[HES3]+centered[HES6]+centered[HES7]+centered[HES8]+centered[HES9])/4;
-  rotX = (centered[HES0]+centered[HES1]-centered[HES6]-centered[HES7])/2;
-  rotY = (centered[HES8]+centered[HES9]-centered[HES2]-centered[HES3])/2;
-  rotZ = (centered[HES0]+centered[HES2]+centered[HES6]+centered[HES8]-centered[HES1]-centered[HES3]-centered[HES7]-centered[HES9])/4; // C0001 *JC - changed default direction of rotation
+  // transX = (-centered[AX] +centered[CX])/1;
+  // transY = (-centered[BX] +centered[DX])/1;
+  // transZ = (-centered[AY] -centered[BY] -centered[CY] -centered[DY])/2;
+  // rotX = (-centered[AY] +centered[CY])/2;
+  // rotY = (+centered[BY] -centered[DY])/2;
+  // rotZ = (+centered[AX] +centered[BX] +centered[CX] +centered[DX])/4;
 
-// *JC - modified speed calculation to allow for the fact that this is integer calculations
-// so do multiplications prior to divisions to maintain maximum accuracy.
-// C008 now removed
-/*  transX = (transX*speed)/100;
+  // *JC - Replaced Joystick calculations with ones for the Hall Effect Sensors
+  transX = (centered[HES1] - centered[HES0] + centered[HES6] - centered[HES7]) / 2;
+  transY = (centered[HES2] - centered[HES3] + centered[HES9] - centered[HES8]) / 2;
+  transZ = (centered[HES0] + centered[HES1] + centered[HES2] + centered[HES3] + centered[HES6] + centered[HES7] + centered[HES8] + centered[HES9]) / 4;
+
+  // Calculate rotation from Hall sensors (baseline, before gyro fusion)
+  int16_t rotX_hall = (centered[HES0] + centered[HES1] - centered[HES6] - centered[HES7]) / 2;
+  int16_t rotY_hall = (centered[HES8] + centered[HES9] - centered[HES2] - centered[HES3]) / 2;
+  int16_t rotZ_hall = (centered[HES0] + centered[HES2] + centered[HES6] + centered[HES8] - centered[HES1] - centered[HES3] - centered[HES7] - centered[HES9]) / 4; // C0001 *JC - changed default direction of rotation
+
+  // *JC - Apply complementary filter: fuse gyroscope (smooth) with Hall sensors (drift correction)
+  rotX = integrateAndFuseGyro(gx_dps, rotX_hall, 0, dt_sec);
+  rotY = integrateAndFuseGyro(gy_dps, rotY_hall, 1, dt_sec);
+  rotZ = integrateAndFuseGyro(gz_dps, rotZ_hall, 2, dt_sec);
+
+  // *JC - modified speed calculation to allow for the fact that this is integer calculations
+  // so do multiplications prior to divisions to maintain maximum accuracy.
+  // C008 now removed
+  /*  transX = (transX*speed)/100;
   transY = (transY*speed)/100;
   transZ = (transZ*speed)/100;
   rotX = (rotX*speed)/100;
   rotY = (rotY*speed)/100;
   rotZ = (rotZ*speed)/100; */
 
-// Invert directions if needed
-  if(invX == true){ transX = transX*-1;};
-  if(invY == true){ transY = transY*-1;};
-  if(invZ == true){ transZ = transZ*-1;};
-  if(invRX == true){ rotX = rotX*-1;};
-  if(invRY == true){ rotY = rotY*-1;};
-  if(invRZ == true){ rotZ = rotZ*-1;};
+  // Invert directions if needed
+  if (invX == true)
+  {
+    transX = transX * -1;
+  };
+  if (invY == true)
+  {
+    transY = transY * -1;
+  };
+  if (invZ == true)
+  {
+    transZ = transZ * -1;
+  };
+  if (invRX == true)
+  {
+    rotX = rotX * -1;
+  };
+  if (invRY == true)
+  {
+    rotY = rotY * -1;
+  };
+  if (invRZ == true)
+  {
+    rotZ = rotZ * -1;
+  };
 
-// Report translation and rotation values if enabled. Approx -800 to 800 depending on the parameter.
-  if(debug == 4){
-    Serial.print("TX:"); Serial.print(transX); Serial.print(",");
-    Serial.print("TY:"); Serial.print(transY); Serial.print(",");
-    Serial.print("TZ:"); Serial.print(transZ); Serial.print(",");
-    Serial.print("RX:"); Serial.print(rotX); Serial.print(",");
-    Serial.print("RY:"); Serial.print(rotY); Serial.print(",");
-    Serial.print("RZ:"); Serial.println(rotZ);
+  // Report translation and rotation values if enabled. Approx -800 to 800 depending on the parameter.
+  if (debug == 4)
+  {
+    Serial.print("TX:");
+    Serial.print(transX);
+    Serial.print(",");
+    Serial.print("TY:");
+    Serial.print(transY);
+    Serial.print(",");
+    Serial.print("TZ:");
+    Serial.print(transZ);
+    Serial.print(",");
+    Serial.print("RX:");
+    Serial.print(rotX);
+    Serial.print(",");
+    Serial.print("RY:");
+    Serial.print(rotY);
+    Serial.print(",");
+    Serial.print("RZ:");
+    Serial.println(rotZ);
   }
+<<<<<<< HEAD
+  // Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
+  if (debug == 5)
+  {
+    Serial.print("HES0:");
+    Serial.print(centered[0]);
+    Serial.print(",");
+    Serial.print("HES1:");
+    Serial.print(centered[1]);
+    Serial.print(",");
+    Serial.print("HES2:");
+    Serial.print(centered[2]);
+    Serial.print(",");
+    Serial.print("HES3:");
+    Serial.print(centered[3]);
+    Serial.print(",");
+    Serial.print("HES6:");
+    Serial.print(centered[4]);
+    Serial.print(",");
+    Serial.print("HES7:");
+    Serial.print(centered[5]);
+    Serial.print(",");
+    Serial.print("HES8:");
+    Serial.print(centered[6]);
+    Serial.print(",");
+    Serial.print("HES9:");
+    Serial.print(centered[7]);
+    Serial.print("||");
+    Serial.print("TX:");
+    Serial.print(transX);
+    Serial.print(",");
+    Serial.print("TY:");
+    Serial.print(transY);
+    Serial.print(",");
+    Serial.print("TZ:");
+    Serial.print(transZ);
+    Serial.print(",");
+    Serial.print("RX:");
+    Serial.print(rotX);
+    Serial.print(",");
+    Serial.print("RY:");
+    Serial.print(rotY);
+    Serial.print(",");
+    Serial.print("RZ:");
+    Serial.println(rotZ);
+=======
 // Report debug 4 and 5 info side by side for direct reference if enabled. Very useful if you need to alter which inputs are used in th arithmatic above.
   if(debug == 5){
     Serial.print("HES0:"); Serial.print(centered[0]); Serial.print(",");
@@ -499,16 +984,42 @@ void loop() {
     Serial.print("RX:"); Serial.print(rotX); Serial.print(",");
     Serial.print("RY:"); Serial.print(rotY); Serial.print(",");
    Serial.print("RZ:"); Serial.println(rotZ);
+>>>>>>> b826b784d3e9af48527896de6ad83b80bfcd8278
   }
 
-// Send data to the 3DConnexion software.
-// The correct order for me was determined after trial and error - Teaching Tech
-// *JC - Added buttons for button report
-// *JC C003 Allowing swap between TT movement and 3DC movement defaults.
-  if (movement3DC) {
-    send_command(rotX, rotY, rotZ, transX, transY, transZ,buttonReads); // 3DC default
+  // *JC - Debug level 7: MPU-6050 gyroscope data for diagnostics
+  if (debug == 7)
+  {
+    Serial.print("GX_DPS:");
+    Serial.print(gx_dps, 2);
+    Serial.print(",GY_DPS:");
+    Serial.print(gy_dps, 2);
+    Serial.print(",GZ_DPS:");
+    Serial.print(gz_dps, 2);
+    Serial.print("|GX_INT:");
+    Serial.print(gyro_integrated[0], 1);
+    Serial.print(",GY_INT:");
+    Serial.print(gyro_integrated[1], 1);
+    Serial.print(",GZ_INT:");
+    Serial.print(gyro_integrated[2], 1);
+    Serial.print("|RX:");
+    Serial.print(rotX);
+    Serial.print(",RY:");
+    Serial.print(rotY);
+    Serial.print(",RZ:");
+    Serial.println(rotZ);
   }
-  else {
-    send_command(rotX, rotY, rotZ, transX, transZ, transY,buttonReads); // TT default
+
+  // Send data to the 3DConnexion software.
+  // The correct order for me was determined after trial and error - Teaching Tech
+  // *JC - Added buttons for button report
+  // *JC C003 Allowing swap between TT movement and 3DC movement defaults.
+  if (movement3DC)
+  {
+    send_command(rotX, rotY, rotZ, transX, transY, transZ, buttonReads); // 3DC default
+  }
+  else
+  {
+    send_command(rotX, rotY, rotZ, transX, transZ, transY, buttonReads); // TT default
   }
 }

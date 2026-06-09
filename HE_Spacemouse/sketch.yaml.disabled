@@ -1,0 +1,14 @@
+profiles:
+  profile-1779229232482:
+    fqbn: spacemouse:avr:micro
+    platforms:
+      - platform: spacemouse:avr (1.8.7)
+    programmer: arduinoasispatmega32u4
+    port: ""
+    port_config:
+      baudrate: "115200"
+      bits: "8"
+      parity: none
+      stop_bits: one
+    libraries:
+      - Adafruit NeoPixel (1.15.5)

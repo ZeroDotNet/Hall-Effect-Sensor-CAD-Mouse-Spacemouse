@@ -1,0 +1,71 @@
+{
+  "configurations": [
+    {
+      "name": "Arduino",
+      "includePath": [
+        "C:\\Users\\nicol\\Documents\\Arduino\\libraries/**",
+        "Y:\\Hall-Effect-Sensor-CAD-Mouse-Spacemouse\\HE_Spacemouse/**",
+        "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\cores\\arduino/**",
+        "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\variants\\micro/**",
+        "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\libraries\\HID\\src/**",
+        "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\libraries\\Wire\\src/**",
+        "C:\\Users\\nicol\\Documents\\Arduino\\libraries\\MPU6050\\src/**"
+      ],
+      "forcedInclude": [
+        "C:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\cores\\arduino\\Arduino.h"
+      ],
+      "compilerPath": "C:\\Users\\nicol\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
+      "compilerArgs": [
+        "C:\\Users\\nicol\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
+        "-c",
+        "-g",
+        "-Os",
+        "-w",
+        "-std=gnu++11",
+        "-fpermissive",
+        "-fno-exceptions",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fno-threadsafe-statics",
+        "-Wno-error=narrowing",
+        "-MMD",
+        "-flto",
+        "-mmcu=atmega32u4",
+        "-DF_CPU=16000000L",
+        "-DARDUINO=10607",
+        "-DARDUINO_AVR_MICRO",
+        "-DARDUINO_ARCH_AVR",
+        "-DUSB_VID=0x256f",
+        "-DUSB_PID=0xc631",
+        "-DUSB_MANUFACTURER=\"Unknown\"",
+        "-DUSB_PRODUCT=\"Spacemouse Micro\"",
+        "-IC:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\cores\\arduino",
+        "-IC:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\variants\\micro",
+        "-IC:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\libraries\\HID\\src",
+        "-IC:\\Users\\nicol\\Documents\\Arduino\\hardware\\spacemouse\\avr\\1.8.7\\libraries\\Wire\\src",
+        "-IC:\\Users\\nicol\\Documents\\Arduino\\libraries\\MPU6050\\src",
+        "Y:\\Hall-Effect-Sensor-CAD-Mouse-Spacemouse\\HE_Spacemouse\\build\\sketch\\HE_Spacemouse.ino.cpp",
+        "-o",
+        "Y:\\Hall-Effect-Sensor-CAD-Mouse-Spacemouse\\HE_Spacemouse\\build\\sketch\\HE_Spacemouse.ino.cpp.o"
+      ],
+      "defines": [
+        "F_CPU=16000000L",
+        "ARDUINO=10607",
+        "ARDUINO_AVR_MICRO",
+        "ARDUINO_ARCH_AVR",
+        "USB_VID=0x256f",
+        "USB_PID=0xc631",
+        "USB_MANUFACTURER=Unknown",
+        "USB_PRODUCT=Spacemouse Micro",
+        "USB_MANUFACTURER=\\Unknown\\",
+        "USB_PRODUCT=\\Spacemouse",
+        "USB_MANUFACTURER=\"Unknown",
+        "USB_PRODUCT=\"Spacemouse Micro",
+        "USBCON"
+      ],
+      "cStandard": "c17",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
