@@ -1,2 +1,4 @@
+/.platformio-core
+/.venv-pio
 .venv-pio/
 .platformio-core/
